@@ -1,6 +1,6 @@
 """NumberRange model for PSTN module."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
@@ -35,8 +35,8 @@ class NumberRange(PSTNBase):
 
     customer_id = Column(Integer, ForeignKey("pstn_customers.id"), nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     parent_range = relationship("NumberRange", remote_side=[id], backref="sub_ranges")

@@ -146,7 +146,7 @@ def scan_network(session: Session, network_id: int) -> ScanLog:
 
     # Mark IPs not found as inactive — but only if they haven't been seen recently
     # by another source (like UniFi sync). Protect IPs seen within the last hour.
-    recent_threshold = datetime.utcnow() - timedelta(hours=1)
+    recent_threshold = datetime.now(timezone.utc) - timedelta(hours=1)
 
     for ip_entry in existing_ips:
         if ip_entry.address not in discovered_hosts:

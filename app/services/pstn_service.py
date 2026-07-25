@@ -1,7 +1,7 @@
 """Service layer for PSTN/Telephony module — CRUD and utilities."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -21,7 +21,7 @@ def log_pstn_audit(session: Session, entity_type: str, entity_id: int, action: s
         entity_id=entity_id,
         action=action,
         details=details,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
     )
     session.add(entry)
     session.commit()
@@ -70,7 +70,7 @@ def update_customer(session: Session, customer_id: int, **kwargs) -> Customer | 
             if old_val != value:
                 changes[key] = {"old": old_val, "new": value}
             setattr(c, key, value)
-    c.updated_at = datetime.utcnow()
+    c.updated_at = datetime.now(timezone.utc)
     session.commit()
     session.refresh(c)
     if changes:
@@ -124,7 +124,7 @@ def update_range(session: Session, range_id: int, **kwargs) -> NumberRange | Non
             if old_val != value:
                 changes[key] = {"old": old_val, "new": value}
             setattr(nr, key, value)
-    nr.updated_at = datetime.utcnow()
+    nr.updated_at = datetime.now(timezone.utc)
     session.commit()
     session.refresh(nr)
     if changes:
@@ -178,7 +178,7 @@ def update_phone_number(session: Session, phone_id: int, **kwargs) -> PhoneNumbe
             if old_val != value:
                 changes[key] = {"old": old_val, "new": value}
             setattr(pn, key, value)
-    pn.updated_at = datetime.utcnow()
+    pn.updated_at = datetime.now(timezone.utc)
     session.commit()
     session.refresh(pn)
     if changes:

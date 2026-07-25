@@ -1,6 +1,6 @@
 """Customer model for PSTN module — tracks ownership/allocation of numbers."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, Integer, String, DateTime, Text
 from sqlalchemy.orm import relationship
@@ -23,8 +23,8 @@ class Customer(PSTNBase):
 
     notes = Column(Text, nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     phone_numbers = relationship("PhoneNumber", back_populates="customer", lazy="dynamic")

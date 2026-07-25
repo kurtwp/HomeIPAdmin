@@ -1,6 +1,6 @@
 """PSTN Audit Trail model — tracks all changes to PSTN entities."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, Integer, String, DateTime, Text
 
@@ -17,7 +17,7 @@ class PSTNAudit(PSTNBase):
     entity_id = Column(Integer, nullable=False)
     action = Column(String(50), nullable=False)  # "created", "updated", "deleted"
     details = Column(Text, nullable=True)  # JSON string of what changed
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     def __repr__(self):
         return f"<PSTNAudit {self.action} {self.entity_type}:{self.entity_id}>"
