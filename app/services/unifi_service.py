@@ -6,6 +6,7 @@ Auth: X-API-KEY header
 """
 
 import httpx
+import ipaddress
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
@@ -166,7 +167,6 @@ def sync_networks(session: Session) -> dict:
                     )
                     # hostIpAddress + prefixLength (actual UniFi format)
                     if not subnet and ipv4_config.get("hostIpAddress") and ipv4_config.get("prefixLength"):
-                        import ipaddress
                         try:
                             net = ipaddress.ip_network(
                                 f"{ipv4_config['hostIpAddress']}/{ipv4_config['prefixLength']}",
@@ -177,7 +177,6 @@ def sync_networks(session: Session) -> dict:
                             pass
                     # Try gateway + prefix
                     if not subnet and ipv4_config.get("gateway") and ipv4_config.get("prefixLength"):
-                        import ipaddress
                         try:
                             net = ipaddress.ip_network(
                                 f"{ipv4_config['gateway']}/{ipv4_config['prefixLength']}",
@@ -189,7 +188,6 @@ def sync_networks(session: Session) -> dict:
 
             # Some responses include separate ip + netmask
             if not subnet and unet.get("ip") and unet.get("netmask"):
-                import ipaddress
                 try:
                     net = ipaddress.ip_network(f"{unet['ip']}/{unet['netmask']}", strict=False)
                     subnet = str(net)
@@ -209,7 +207,6 @@ def sync_networks(session: Session) -> dict:
 
             # Try gatewayIp at top level as last resort
             if not subnet and unet.get("gatewayIp"):
-                import ipaddress
                 try:
                     net = ipaddress.ip_network(f"{unet['gatewayIp']}/24", strict=False)
                     subnet = str(net)
@@ -385,12 +382,11 @@ def sync_devices(session: Session) -> dict:
             # Create/update IP address for this device
             dev_ip = udev.get("ipAddress")
             if dev_ip and device_record:
-                import ipaddress as _ipa
                 # Find matching network
                 target_net = None
                 for net in session.query(Network).all():
                     try:
-                        if _ipa.ip_address(dev_ip) in _ipa.ip_network(net.cidr, strict=False):
+                        if ipaddress.ip_address(dev_ip) in ipaddress.ip_network(net.cidr, strict=False):
                             target_net = net
                             break
                     except ValueError:
@@ -460,17 +456,16 @@ def sync_clients(session: Session) -> dict:
     errors = []
 
     # Pre-load networks for matching
-    import ipaddress as ipaddress_mod
     networks = session.query(Network).all()
     network_cidrs = []
     for net in networks:
         try:
-            network_cidrs.append((net, ipaddress_mod.ip_network(net.cidr, strict=False)))
+            network_cidrs.append((net, ipaddress.ip_network(net.cidr, strict=False)))
         except ValueError:
             pass
 
     # Fetch DHCP ranges from UniFi to determine static vs DHCP
-    dhcp_ranges: list[tuple[ipaddress_mod.IPv4Address, ipaddress_mod.IPv4Address]] = []
+    dhcp_ranges: list[tuple[ipaddress.IPv4Address, ipaddress.IPv4Address]] = []
     try:
         unifi_networks = fetch_networks_from_unifi()
         for unet in unifi_networks:
@@ -481,8 +476,8 @@ def sync_clients(session: Session) -> dict:
                     ip_range = dhcp_config.get("ipAddressRange")
                     if isinstance(ip_range, dict) and ip_range.get("start") and ip_range.get("stop"):
                         try:
-                            start = ipaddress_mod.ip_address(ip_range["start"])
-                            stop = ipaddress_mod.ip_address(ip_range["stop"])
+                            start = ipaddress.ip_address(ip_range["start"])
+                            stop = ipaddress.ip_address(ip_range["stop"])
                             dhcp_ranges.append((start, stop))
                         except ValueError:
                             pass
@@ -492,7 +487,7 @@ def sync_clients(session: Session) -> dict:
     def is_in_dhcp_range(ip_str: str) -> bool:
         """Check if an IP falls within any known DHCP range."""
         try:
-            ip_obj = ipaddress_mod.ip_address(ip_str)
+            ip_obj = ipaddress.ip_address(ip_str)
             for start, stop in dhcp_ranges:
                 if start <= ip_obj <= stop:
                     return True
@@ -527,7 +522,7 @@ def sync_clients(session: Session) -> dict:
             # Find which network this IP belongs to
             target_network = None
             try:
-                ip_obj = ipaddress_mod.ip_address(ip_addr)
+                ip_obj = ipaddress.ip_address(ip_addr)
                 for net, net_obj in network_cidrs:
                     if ip_obj in net_obj:
                         target_network = net
