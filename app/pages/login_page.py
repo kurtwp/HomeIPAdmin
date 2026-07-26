@@ -50,14 +50,11 @@ def render_login():
                 error_label = ui.label("").classes("text-red text-sm")
                 lockout_label = ui.label("").classes("text-orange text-sm")
 
-                def _get_client_ip() -> str | None:
-                    try:
-                        client = app.storage.client
-                        if client and hasattr(client, 'ip'):
-                            return client.ip
-                    except Exception:
-                        pass
-                    return None
+                client_ip: str | None = None
+                try:
+                    client_ip = app.storage.client.ip if app.storage.client else None
+                except Exception:
+                    pass
 
                 def do_login():
                     session = get_session()
@@ -70,8 +67,7 @@ def render_login():
                         return
 
                     lockout_label.text = ""
-                    ip = _get_client_ip()
-                    user = authenticate(session, username_input.value, password_input.value, ip_address=ip)
+                    user = authenticate(session, username_input.value, password_input.value, ip_address=client_ip)
 
                     if user:
                         # Extract values before closing session
