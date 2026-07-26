@@ -19,3 +19,6 @@ UNIFI_API_KEY = os.getenv("UNIFI_API_KEY", "")
 UNIFI_BASE_URL = os.getenv("UNIFI_BASE_URL", "https://192.168.2.254")
 UNIFI_SITE_ID = os.getenv("UNIFI_SITE_ID", "")
 UNIFI_CLOUD_API_KEY = os.getenv("UNIFI_CLOUD_API_KEY", "")
+
+# REST API
+API_KEY = os.getenv("API_KEY", "")

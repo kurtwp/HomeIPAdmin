@@ -47,6 +47,9 @@ from app.pages.settings_page import render_settings
 from app.pages.backup_page import render_backup
 from app.services.scheduler import start_scheduler, stop_scheduler
 
+# Mount REST API alongside NiceGUI
+import app.api.app  # noqa: F401 — mounts /api routes on the NiceGUI Starlette app
+
 
 # Initialize databases and seed defaults
 init_db()

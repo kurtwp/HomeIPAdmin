@@ -20,6 +20,7 @@ A self-hosted IP address management (IPAM) and equipment tracking application fo
 - **CSV import/export** for bulk operations and backup
 - **Dashboard** with utilization stats, recent activity, and quick-add forms
 - **Scheduled scans** — automatic network discovery, firmware checks, SSL/domain monitoring
+- **REST API** — FastAPI-powered JSON API for Home Assistant, Grafana, Ansible, and custom integrations
 - **Database migrations** — Alembic-managed schema versioning
 
 ## Screenshots
@@ -65,6 +66,7 @@ Copy `.env.example` to `.env` and set your values:
 | `APP_TITLE` | Browser tab title | `Home Lab Manager` |
 | `APP_PORT` | Web server port | `8080` |
 | `STORAGE_SECRET` | NiceGUI session encryption key | auto-generated |
+| `API_KEY` | REST API authentication key | — |
 | `UNIFI_API_KEY` | UniFi Network API key | — |
 | `UNIFI_BASE_URL` | UniFi console URL | `https://192.168.2.254` |
 | `UNIFI_SITE_ID` | UniFi site UUID | — |
@@ -90,6 +92,7 @@ HomeLabManager/
 └── app/
     ├── database/db.py         # SQLAlchemy setup, get_session() context manager
     ├── models/                # ORM models (Network, IP, Device, Tag, User, etc.)
+    ├── api/                   # REST API (FastAPI routers, Pydantic schemas, auth)
     ├── pages/                 # NiceGUI page components
     ├── services/              # Business logic (CRUD, scanner, notifications, auth)
     └── utils/                 # Validators, formatters, constants
@@ -99,6 +102,7 @@ HomeLabManager/
 
 - **Backend**: Python 3.12
 - **UI Framework**: [NiceGUI](https://nicegui.io/)
+- **API Framework**: [FastAPI](https://fastapi.tiangolo.com/) (auto-generated OpenAPI docs)
 - **Database**: SQLite via SQLAlchemy
 - **Migrations**: Alembic
 - **Scanning**: python-nmap / ping3
@@ -112,7 +116,8 @@ HomeLabManager/
 - [x] Phase 1B: Subnet grid, tags, CSV import/export, quick-add
 - [x] Phase 2: UniFi API integration, scheduled scans, custom fields
 - [x] Phase 2.5: Notifications, auth, firmware tracking, monitoring
-- [ ] Phase 3: REST API, reporting, mobile-responsive design
+- [x] Phase 3: REST API
+- [ ] Phase 3.5: Reporting, mobile-responsive design
 
 See [home-lab-features.md](home-lab-features.md) for the full feature roadmap.
 
