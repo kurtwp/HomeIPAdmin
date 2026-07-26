@@ -83,10 +83,10 @@ def render_user_management():
                 uname = row["username"]
                 is_self = uname == app.storage.user.get("username")
                 with users_table.add_slot(f"body-row-{uid}"):
-                    with ui.tr().classes("items-center"):
-                        with ui.td().classes("w-48"):
+                    with ui.element('tr').classes("items-center"):
+                        with ui.element('td').classes("w-48"):
                             ui.label(uname)
-                        with ui.td().classes("w-24 text-center"):
+                        with ui.element('td').classes("w-24 text-center"):
                             role_select = ui.select(
                                 ["admin", "viewer"],
                                 value=row["role"],
@@ -94,12 +94,12 @@ def render_user_management():
                             ).props("dense borderless").classes("w-24")
                             if is_self:
                                 role_select.disable()
-                        with ui.td().classes("w-24 text-center"):
+                        with ui.element('td').classes("w-24 text-center"):
                             status_color = "green" if row["status"] == "Active" else "gray"
                             ui.badge(row["status"]).props(f"color={status_color}")
-                        with ui.td().classes("w-32"):
+                        with ui.element('td').classes("w-32"):
                             ui.label(row["last_login"]).classes("text-sm")
-                        with ui.td().classes("text-center"):
+                        with ui.element('td').classes("text-center"):
                             if not is_self:
                                 btn_label = "Deactivate" if row["status"] == "Active" else "Activate"
                                 ui.button(
