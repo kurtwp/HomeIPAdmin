@@ -11,12 +11,12 @@ from app.models.custom_field import CustomFieldDefinition, CustomFieldValue
 from app.models.saved_search import SavedSearch
 from app.models.note import Note
 from app.models.uptime_monitor import MonitoredHost, UptimeEvent, PingResult
-from app.services.notification_service import NotificationLog
-from app.services.firmware_service import DeviceFirmware
+from app.models.user import User
+from app.models.ssl_certificate import SSLCertificate
+from app.models.device_firmware import DeviceFirmware
+from app.models.notification_log import NotificationLog
 from app.services.mac_watchlist_service import KnownMAC
-from app.services.auth_service import User
 from app.services.webhook_trigger_service import WebhookTrigger
-from app.services.ssl_service import SSLCertificate
 from app.services.domain_service import TrackedDomain
 from app.services.snmp_profiles import SNMPProfile
 
@@ -36,4 +36,8 @@ __all__ = [
     "CustomFieldValue",
     "SavedSearch",
     "Note",
+    "User",
+    "SSLCertificate",
+    "DeviceFirmware",
+    "NotificationLog",
 ]

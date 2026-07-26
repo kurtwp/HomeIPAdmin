@@ -303,7 +303,7 @@ def run_checks():
                                 from datetime import timedelta
                                 down_since = host.last_seen_down.replace(tzinfo=timezone.utc) if host.last_seen_down.tzinfo is None else host.last_seen_down
                                 # Check last notification for this host from the log
-                                from app.services.notification_service import NotificationLog
+                                from app.models.notification_log import NotificationLog
                                 last_notif = (
                                     session.query(NotificationLog)
                                     .filter(

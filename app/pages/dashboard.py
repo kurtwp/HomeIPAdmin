@@ -15,7 +15,7 @@ from app.services.ip_service import get_recently_modified_ips, create_ip
 from app.services.device_service import create_device, get_all_device_types
 from app.services.conflict_service import detect_all_conflicts
 from app.services.mac_watchlist_service import detect_unknown_macs, KnownMAC
-from app.services.ssl_service import SSLCertificate
+from app.models.ssl_certificate import SSLCertificate
 from app.services.domain_service import TrackedDomain
 from app.pages.layout import page_layout
 
