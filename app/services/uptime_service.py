@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 from sqlalchemy.orm import Session
 
 from app.models.uptime_monitor import MonitoredHost, UptimeEvent, PingResult
-from app.database.db import SessionLocal
+from app.database.db import get_session
 
 
 def add_monitor(session: Session, ip_address: str, name: str, check_interval: int = 60,
@@ -168,8 +168,7 @@ def run_checks() -> None:
     Run uptime checks on all enabled monitors.
     Called by the scheduler periodically.
     """
-    session = SessionLocal()
-    try:
+    with get_session() as session:
         monitors = (
             session.query(MonitoredHost)
             .filter(MonitoredHost.is_enabled == True)
@@ -321,9 +320,4 @@ def run_checks() -> None:
                     from datetime import timedelta
                     host.last_check = now - timedelta(seconds=(host.check_interval - retry_interval))
 
-        session.commit()
-    except Exception as e:
-        session.rollback()
-        logger.error("Uptime check error: %s", e)
-    finally:
-        session.close()
+            session.commit()

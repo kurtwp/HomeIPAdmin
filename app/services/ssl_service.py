@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 from sqlalchemy.orm import Session
 
-from app.database.db import SessionLocal
+from app.database.db import get_session
 from app.models.ssl_certificate import SSLCertificate
 
 
@@ -210,8 +210,7 @@ def refresh_certificate(session: Session, cert_id: int) -> dict:
 
 def refresh_all_certificates() -> dict:
     """Check all tracked certificates. Returns summary."""
-    session = SessionLocal()
-    try:
+    with get_session() as session:
         certs = session.query(SSLCertificate).all()
         checked = 0
         expiring = 0
@@ -270,9 +269,3 @@ def refresh_all_certificates() -> dict:
                 logger.debug("SSL notification send failed: %s", e)
 
         return {"checked": checked, "expiring": expiring, "expired": expired, "errors": errors}
-
-    except Exception as e:
-        session.rollback()
-        return {"checked": 0, "expiring": 0, "expired": 0, "errors": 1}
-    finally:
-        session.close()

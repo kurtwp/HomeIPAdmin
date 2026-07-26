@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 import httpx
 
-from app.database.db import SessionLocal
+from app.database.db import get_session
 from app.models.notification_log import NotificationLog
 
 
@@ -107,8 +107,7 @@ def send_notification(subject: str, message: str, priority: str = "normal") -> l
         results.append(_send_telegram(config, subject, message))
 
     # Log all notifications
-    session = SessionLocal()
-    try:
+    with get_session() as session:
         for result in results:
             log = NotificationLog(
                 channel=result["channel"],
@@ -119,10 +118,6 @@ def send_notification(subject: str, message: str, priority: str = "normal") -> l
             )
             session.add(log)
         session.commit()
-    except Exception:
-        session.rollback()
-    finally:
-        session.close()
 
     return results
 
@@ -281,13 +276,10 @@ def notify_firmware_update(device_name: str, current_version: str, available_ver
 
 def get_notification_history(limit: int = 50) -> list[NotificationLog]:
     """Get recent notification log entries."""
-    session = SessionLocal()
-    try:
+    with get_session() as session:
         return (
             session.query(NotificationLog)
             .order_by(NotificationLog.timestamp.desc())
             .limit(limit)
             .all()
         )
-    finally:
-        session.close()

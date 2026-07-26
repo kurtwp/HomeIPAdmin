@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from sqlalchemy import String, Integer, DateTime, Boolean, Text
 from sqlalchemy.orm import Mapped, mapped_column, Session
 
-from app.database.db import Base, SessionLocal
+from app.database.db import Base, get_session
 
 
 class TrackedDomain(Base):
@@ -208,8 +208,7 @@ def refresh_domain(session: Session, domain_id: int) -> dict:
 
 def refresh_all_domains() -> dict:
     """Check all tracked domains. Returns summary."""
-    session = SessionLocal()
-    try:
+    with get_session() as session:
         domains = session.query(TrackedDomain).all()
         checked = 0
         expiring = 0
@@ -265,9 +264,3 @@ def refresh_all_domains() -> dict:
                 pass
 
         return {"checked": checked, "expiring": expiring, "expired": expired, "errors": errors}
-
-    except Exception:
-        session.rollback()
-        return {"checked": 0, "expiring": 0, "expired": 0, "errors": 1}
-    finally:
-        session.close()

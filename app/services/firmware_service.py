@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 from sqlalchemy.orm import Session
 
-from app.database.db import SessionLocal
+from app.database.db import get_session
 from app.models.device_firmware import DeviceFirmware
 from app.services.unifi_service import fetch_devices_from_unifi, is_configured
 
@@ -23,8 +23,7 @@ def sync_firmware_info() -> dict:
         return {"checked": 0, "updates_available": 0, "new_devices": 0,
                 "errors": ["UniFi not configured"]}
 
-    session = SessionLocal()
-    try:
+    with get_session() as session:
         devices = fetch_devices_from_unifi()
         checked = 0
         updates_available = 0
@@ -159,40 +158,28 @@ def sync_firmware_info() -> dict:
             "errors": errors,
         }
 
-    except Exception as e:
-        session.rollback()
-        return {"checked": 0, "updates_available": 0, "new_devices": 0,
-                "errors": [str(e)]}
-    finally:
-        session.close()
-
 
 def get_all_firmware(session: Session = None) -> list[DeviceFirmware]:
     """Get all firmware tracking records."""
-    close_session = False
-    if session is None:
-        session = SessionLocal()
-        close_session = True
-    try:
+    if session is not None:
         return session.query(DeviceFirmware).order_by(DeviceFirmware.device_name).all()
-    finally:
-        if close_session:
-            session.close()
+    with get_session() as s:
+        return s.query(DeviceFirmware).order_by(DeviceFirmware.device_name).all()
 
 
 def get_devices_with_updates(session: Session = None) -> list[DeviceFirmware]:
     """Get only devices that have firmware updates available."""
-    close_session = False
-    if session is None:
-        session = SessionLocal()
-        close_session = True
-    try:
+    if session is not None:
         return (
             session.query(DeviceFirmware)
             .filter(DeviceFirmware.update_available == True)
             .order_by(DeviceFirmware.device_name)
             .all()
         )
-    finally:
-        if close_session:
-            session.close()
+    with get_session() as s:
+        return (
+            s.query(DeviceFirmware)
+            .filter(DeviceFirmware.update_available == True)
+            .order_by(DeviceFirmware.device_name)
+            .all()
+        )

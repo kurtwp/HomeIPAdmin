@@ -6,7 +6,7 @@ import httpx
 from sqlalchemy import String, Integer, DateTime, Boolean, Text
 from sqlalchemy.orm import Mapped, mapped_column, Session
 
-from app.database.db import Base, SessionLocal
+from app.database.db import Base, get_session
 
 
 # --- Model ---
@@ -115,71 +115,70 @@ def fire_event(event_type: str, payload: dict) -> list[dict]:
     Returns:
         List of results: [{"trigger": str, "success": bool, "error": str|None}]
     """
-    session = SessionLocal()
-    results = []
-    try:
-        triggers = get_triggers_for_event(session, event_type)
+    with get_session() as session:
+        results = []
+        try:
+            triggers = get_triggers_for_event(session, event_type)
 
-        for trigger in triggers:
-            # Apply filter if set
-            if trigger.filter_value:
-                # Simple string matching on any payload value
-                filter_match = any(
-                    trigger.filter_value.lower() in str(v).lower()
-                    for v in payload.values()
-                )
-                if not filter_match:
-                    continue
+            for trigger in triggers:
+                # Apply filter if set
+                if trigger.filter_value:
+                    # Simple string matching on any payload value
+                    filter_match = any(
+                        trigger.filter_value.lower() in str(v).lower()
+                        for v in payload.values()
+                    )
+                    if not filter_match:
+                        continue
 
-            # Build webhook payload
-            webhook_data = {
-                "event": event_type,
-                "trigger_name": trigger.name,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "source": "Home Lab Manager",
-                **payload,
-            }
+                # Build webhook payload
+                webhook_data = {
+                    "event": event_type,
+                    "trigger_name": trigger.name,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "source": "Home Lab Manager",
+                    **payload,
+                }
 
-            # Format for specific platforms
-            url = trigger.webhook_url
-            if "discord.com/api/webhooks" in url:
-                # Discord expects {"content": "text"}
-                text_parts = [f"**[{event_type}]** {trigger.name}"]
-                for k, v in payload.items():
-                    if v is not None:
-                        text_parts.append(f"• {k}: {v}")
-                send_data = {"content": "\n".join(text_parts)}
-            elif "hooks.slack.com" in url:
-                # Slack expects {"text": "text"}
-                text_parts = [f"*[{event_type}]* {trigger.name}"]
-                for k, v in payload.items():
-                    if v is not None:
-                        text_parts.append(f"• {k}: {v}")
-                send_data = {"text": "\n".join(text_parts)}
-            else:
-                send_data = webhook_data
-
-            # Send webhook
-            try:
-                r = httpx.post(url, json=send_data, timeout=10.0)
-                if r.status_code >= 400:
-                    error_detail = r.text[:200] if r.text else f"HTTP {r.status_code}"
-                    results.append({"trigger": trigger.name, "success": False, "error": error_detail})
+                # Format for specific platforms
+                url = trigger.webhook_url
+                if "discord.com/api/webhooks" in url:
+                    # Discord expects {"content": "text"}
+                    text_parts = [f"**[{event_type}]** {trigger.name}"]
+                    for k, v in payload.items():
+                        if v is not None:
+                            text_parts.append(f"• {k}: {v}")
+                    send_data = {"content": "\n".join(text_parts)}
+                elif "hooks.slack.com" in url:
+                    # Slack expects {"text": "text"}
+                    text_parts = [f"*[{event_type}]* {trigger.name}"]
+                    for k, v in payload.items():
+                        if v is not None:
+                            text_parts.append(f"• {k}: {v}")
+                    send_data = {"text": "\n".join(text_parts)}
                 else:
-                    results.append({"trigger": trigger.name, "success": True, "error": None})
-            except Exception as e:
-                results.append({"trigger": trigger.name, "success": False, "error": str(e)})
+                    send_data = webhook_data
 
-            # Update trigger stats
-            trigger.last_fired = datetime.now(timezone.utc)
-            trigger.fire_count += 1
+                # Send webhook
+                try:
+                    r = httpx.post(url, json=send_data, timeout=10.0)
+                    if r.status_code >= 400:
+                        error_detail = r.text[:200] if r.text else f"HTTP {r.status_code}"
+                        results.append({"trigger": trigger.name, "success": False, "error": error_detail})
+                    else:
+                        results.append({"trigger": trigger.name, "success": True, "error": None})
+                except Exception as e:
+                    results.append({"trigger": trigger.name, "success": False, "error": str(e)})
 
-        session.commit()
-    except Exception as e:
-        session.rollback()
-        results.append({"trigger": "system", "success": False, "error": str(e)})
-    finally:
-        session.close()
+                # Update trigger stats
+                trigger.last_fired = datetime.now(timezone.utc)
+                trigger.fire_count += 1
+
+            session.commit()
+
+        except Exception as e:
+            session.rollback()
+            results.append({"trigger": "system", "success": False, "error": str(e)})
 
     return results
 

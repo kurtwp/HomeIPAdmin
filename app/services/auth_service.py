@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 import bcrypt
 from sqlalchemy.orm import Session
 
-from app.database.db import SessionLocal
+from app.database.db import get_session
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -84,8 +84,5 @@ def change_password(session: Session, user_id: int, new_password: str) -> bool:
 
 def is_auth_enabled() -> bool:
     """Check if authentication is enabled (at least one user exists)."""
-    session = SessionLocal()
-    try:
+    with get_session() as session:
         return session.query(User).count() > 0
-    finally:
-        session.close()
