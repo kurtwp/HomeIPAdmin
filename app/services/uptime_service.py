@@ -1,8 +1,11 @@
 """Uptime monitoring service — pings hosts and tracks status."""
 
+import logging
 import subprocess
 import re
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy.orm import Session
 
@@ -239,7 +242,7 @@ def run_checks():
                         if is_notifications_enabled():
                             notify_host_recovered(host.name, host.ip_address, host.consecutive_failures)
                     except Exception as notify_err:
-                        print(f"Notification error (recovery): {notify_err}")
+                        logger.warning("Notification error (recovery): %s", notify_err)
 
                     # Fire webhook triggers
                     try:
@@ -250,8 +253,8 @@ def run_checks():
                             "monitor_type": getattr(host, 'monitor_type', 'ping') or 'ping',
                             "port": getattr(host, 'port', None),
                         })
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("Webhook fire_event monitor_up failed: %s", e)
             else:
                 host.consecutive_failures += 1
                 host.last_seen_down = now
@@ -276,7 +279,7 @@ def run_checks():
                             if is_notifications_enabled():
                                 notify_host_down(host.name, host.ip_address, host.consecutive_failures)
                         except Exception as notify_err:
-                            print(f"Notification error (down): {notify_err}")
+                            logger.warning("Notification error (down): %s", notify_err)
 
                         # Fire webhook triggers
                         try:
@@ -288,8 +291,8 @@ def run_checks():
                                 "port": getattr(host, 'port', None),
                                 "consecutive_failures": host.consecutive_failures,
                             })
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.debug("Webhook fire_event monitor_down failed: %s", e)
                     else:
                         host.current_status = "down"
 
@@ -324,7 +327,7 @@ def run_checks():
                                         priority="high",
                                     )
                         except Exception as notify_err:
-                            print(f"Notification error (reminder): {notify_err}")
+                            logger.warning("Notification error (reminder): %s", notify_err)
                 else:
                     # Still in retry phase — use retry_interval for next check timing
                     # Override last_check to trigger a faster recheck
@@ -335,6 +338,6 @@ def run_checks():
         session.commit()
     except Exception as e:
         session.rollback()
-        print(f"Uptime check error: {e}")
+        logger.error("Uptime check error: %s", e)
     finally:
         session.close()

@@ -1,8 +1,11 @@
 """SSL Certificate tracking service — checks cert expiry on HTTPS services."""
 
+import logging
 import subprocess
 import re
 from datetime import datetime, timezone, timedelta
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy import String, Integer, DateTime, Boolean, Text
 from sqlalchemy.orm import Mapped, mapped_column, Session
@@ -289,8 +292,8 @@ def refresh_all_certificates() -> dict:
                             ),
                             priority="high" if c.days_remaining <= 7 else "normal",
                         )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("SSL notification send failed: %s", e)
 
         return {"checked": checked, "expiring": expiring, "expired": expired, "errors": errors}
 

@@ -1,9 +1,12 @@
 """Network scanning service using nmap for host discovery."""
 
 import ipaddress
+import logging
 import socket
 import time
 from datetime import datetime, timezone, timedelta
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy.orm import Session
 
@@ -133,10 +136,9 @@ def scan_network(session: Session, network_id: int) -> ScanLog:
                     "network": network.name,
                     "source": "nmap_scan",
                 })
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Webhook fire_event ip_active failed: %s", e)
         else:
-            # Update last_seen for existing IPs
             ip_entry = next(ip for ip in existing_ips if ip.address == host_addr)
             ip_entry.last_seen = datetime.now(timezone.utc)
             ip_entry.status = IPStatus.ACTIVE
@@ -171,10 +173,8 @@ def scan_network(session: Session, network_id: int) -> ScanLog:
                         "hostname": ip_entry.hostname or "",
                         "network": network.name,
                     })
-                except Exception:
-                    pass
-
-    # Update scan log
+                except Exception as e:
+                    logger.debug("Webhook fire_event ip_inactive failed: %s", e)
     end_time = time.time()
     scan_log.hosts_found = len(discovered_hosts)
     scan_log.hosts_added = hosts_added
@@ -211,9 +211,9 @@ def scan_network(session: Session, network_id: int) -> ScanLog:
                             "hostname": u["hostname"],
                             "network": u["network"],
                         })
-            except Exception:
-                pass
-    except Exception:
-        pass
+            except Exception as e:
+                logger.debug("Webhook fire_event unknown_mac failed: %s", e)
+    except Exception as e:
+        logger.debug("Webhook fire_event scan_complete failed: %s", e)
 
     return scan_log

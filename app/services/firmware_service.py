@@ -1,6 +1,9 @@
 """Firmware tracking service — monitors UniFi device firmware versions."""
 
+import logging
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy import String, Integer, DateTime, Boolean, Text
 from sqlalchemy.orm import Mapped, mapped_column, Session
@@ -168,8 +171,8 @@ def sync_firmware_info() -> dict:
                         "current_version": item["current"],
                         "available_version": item["available"],
                     })
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Webhook fire_event firmware_update failed: %s", e)
 
         return {
             "checked": checked,
