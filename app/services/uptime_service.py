@@ -43,31 +43,17 @@ def remove_monitor(session: Session, monitor_id: int) -> bool:
     return True
 
 
-def update_monitor(session: Session, monitor_id: int, name: str | None = None,
-                   ip_address: str | None = None, check_interval: int | None = None,
-                   is_enabled: bool | None = None, max_retries: int | None = None,
-                   retry_interval: int | None = None, monitor_type: str | None = None,
-                   port: int | None = None) -> MonitoredHost | None:
-    """Update an existing monitored host."""
+def update_monitor(session: Session, monitor_id: int, **kwargs) -> MonitoredHost | None:
+    """Update an existing monitored host.
+
+    Accepts any field of MonitoredHost as a keyword argument.
+    """
     host = session.query(MonitoredHost).filter(MonitoredHost.id == monitor_id).first()
     if not host:
         return None
-    if name is not None:
-        host.name = name
-    if ip_address is not None:
-        host.ip_address = ip_address
-    if check_interval is not None:
-        host.check_interval = check_interval
-    if is_enabled is not None:
-        host.is_enabled = is_enabled
-    if max_retries is not None:
-        host.max_retries = max_retries
-    if retry_interval is not None:
-        host.retry_interval = retry_interval
-    if monitor_type is not None:
-        host.monitor_type = monitor_type
-    if port is not None:
-        host.port = port
+    for key, value in kwargs.items():
+        if hasattr(host, key):
+            setattr(host, key, value)
     session.commit()
     return host
 

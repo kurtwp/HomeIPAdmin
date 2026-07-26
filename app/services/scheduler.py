@@ -5,7 +5,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 
-from app.database.db import get_session, SessionLocal
+from app.database.db import get_session
 from app.services.scanner import scan_network
 from app.models.network import Network
 
@@ -90,10 +90,8 @@ def remove_scan_job(network_id: int) -> bool:
 
 def _run_scan(network_id: int):
     """Execute a network scan (called by scheduler)."""
-    session = SessionLocal()
-    try:
-        scan_network(session, network_id)
-    except Exception as e:
-        logger.error("Scheduled scan failed for network %s: %s", network_id, e)
-    finally:
-        session.close()
+    with get_session() as session:
+        try:
+            scan_network(session, network_id)
+        except Exception as e:
+            logger.error("Scheduled scan failed for network %s: %s", network_id, e)
