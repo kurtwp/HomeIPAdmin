@@ -52,11 +52,9 @@ def render_login():
 
                 def _get_client_ip() -> str | None:
                     try:
-                        from starlette.requests import Request
-                        from nicegui.context import get_client
-                        client = get_client()
-                        if client and hasattr(client, 'request'):
-                            return client.request.client.host if client.request.client else None
+                        client = app.storage.client
+                        if client and hasattr(client, 'ip'):
+                            return client.ip
                     except Exception:
                         pass
                     return None
