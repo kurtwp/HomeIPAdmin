@@ -4,7 +4,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 
-from app.database.db import SessionLocal
+from app.database.db import get_session, SessionLocal
 from app.services.scanner import scan_network
 from app.models.network import Network
 
@@ -59,10 +59,9 @@ def add_scan_job(
         scheduler.remove_job(job_id)
 
     # Get network name for the job label
-    session = SessionLocal()
-    network = session.query(Network).filter(Network.id == network_id).first()
+    with get_session() as session:
+        network = session.query(Network).filter(Network.id == network_id).first()
     job_name = f"Scan: {network.name}" if network else f"Scan: Network {network_id}"
-    session.close()
 
     scheduler.add_job(
         _run_scan,
