@@ -163,7 +163,7 @@ def check_port(ip_address: str, port: int, timeout: int = 3) -> tuple[bool, floa
         return False, None
 
 
-def run_checks():
+def run_checks() -> None:
     """
     Run uptime checks on all enabled monitors.
     Called by the scheduler periodically.

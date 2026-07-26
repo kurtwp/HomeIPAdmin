@@ -245,7 +245,7 @@ def _send_telegram(config: dict, subject: str, message: str) -> dict:
 
 # --- Convenience Functions for Common Alerts ---
 
-def notify_host_down(host_name: str, ip_address: str, consecutive_failures: int):
+def notify_host_down(host_name: str, ip_address: str, consecutive_failures: int) -> list[dict]:
     """Send alert when an uptime-monitored host goes down."""
     subject = f"🔴 Host DOWN: {host_name} ({ip_address})"
     message = (
@@ -256,7 +256,7 @@ def notify_host_down(host_name: str, ip_address: str, consecutive_failures: int)
     return send_notification(subject, message, priority="high")
 
 
-def notify_host_recovered(host_name: str, ip_address: str, downtime_checks: int):
+def notify_host_recovered(host_name: str, ip_address: str, downtime_checks: int) -> list[dict]:
     """Send alert when a host recovers from being down."""
     subject = f"🟢 Host RECOVERED: {host_name} ({ip_address})"
     message = (
@@ -267,7 +267,7 @@ def notify_host_recovered(host_name: str, ip_address: str, downtime_checks: int)
     return send_notification(subject, message, priority="normal")
 
 
-def notify_firmware_update(device_name: str, current_version: str, available_version: str):
+def notify_firmware_update(device_name: str, current_version: str, available_version: str) -> list[dict]:
     """Send alert when a firmware update is available."""
     subject = f"📦 Firmware update: {device_name}"
     message = (

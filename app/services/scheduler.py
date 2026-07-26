@@ -15,13 +15,13 @@ logger = logging.getLogger(__name__)
 scheduler = BackgroundScheduler()
 
 
-def start_scheduler():
+def start_scheduler() -> None:
     """Start the background scheduler if not already running."""
     if not scheduler.running:
         scheduler.start()
 
 
-def stop_scheduler():
+def stop_scheduler() -> None:
     """Shutdown the scheduler gracefully."""
     if scheduler.running:
         scheduler.shutdown(wait=False)

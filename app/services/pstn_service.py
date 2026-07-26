@@ -14,7 +14,7 @@ from app.models.pstn.pstn_audit import PSTNAudit
 
 # ─── Audit Logging ──────────────────────────────────────────────────────────────
 
-def log_pstn_audit(session: Session, entity_type: str, entity_id: int, action: str, details: str | None = None):
+def log_pstn_audit(session: Session, entity_type: str, entity_id: int, action: str, details: str | None = None) -> PSTNAudit:
     """Create an audit trail entry."""
     entry = PSTNAudit(
         entity_type=entity_type,
