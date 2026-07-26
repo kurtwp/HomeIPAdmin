@@ -1,7 +1,7 @@
 """Home Lab Manager Application — NiceGUI entry point."""
 #
 import logging
-from nicegui import ui, app
+from nicegui import ui, app as nicegui_app
 
 logging.basicConfig(
     level=logging.INFO,
@@ -346,7 +346,7 @@ def pstn_export_page():
 
 
 # --- Serve static CSS ---
-app.add_static_files("/static", "static")
+nicegui_app.add_static_files("/static", "static")
 
 
 # --- Run ---
