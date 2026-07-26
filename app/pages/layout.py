@@ -17,6 +17,20 @@ def page_layout(title: str = "Home Lab Manager"):
     is_dark = app.storage.user.get("dark_mode", True)
     dark = ui.dark_mode(is_dark)
 
+    # Inject script in <head> to set background before page renders (prevents white flash)
+    ui.add_head_html(
+        '<script>'
+        '(function(){'
+        'var m=document.cookie.match(/nicegui_storage=([^;]+)/);'
+        'if(m){try{var d=JSON.parse(decodeURIComponent(m[1]));'
+        'var dk=d.user&&d.user.dark_mode!==false;'
+        'var c=dk?"#1a1a2e":"#f5f5f5";'
+        'document.documentElement.style.background=c;'
+        'document.body&&(document.body.style.background=c);'
+        '}catch(e){}}'
+        '})()</script>'
+    )
+
     ui.add_css("""
         .nav-link { color: white !important; text-decoration: none; font-size: 1.1rem; font-weight: 400; }
         .nav-link:hover { opacity: 0.8; }
