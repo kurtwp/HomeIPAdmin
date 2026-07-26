@@ -53,8 +53,9 @@ def render_login():
                 client_ip: str | None = None
                 try:
                     client_ip = app.storage.client.ip if app.storage.client else None
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[DEBUG] Failed to get IP via storage: {e}")
+                print(f"[DEBUG] Client IP: {client_ip!r}")
 
                 def do_login():
                     session = get_session()
