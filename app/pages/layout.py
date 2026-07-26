@@ -23,9 +23,10 @@ def page_layout(title: str = "Home Lab Manager"):
         .page-container { padding: 24px; max-width: 1400px; margin: 0 auto; animation: fadeIn 0.15s ease-in; }
         body.body--dark .q-card { background: #1e1e1e; }
         body.body--dark .q-table { background: #1e1e1e; }
+        body.body--dark { background: #1a1a2e; }
+        body.body--light { background: #f5f5f5; }
         .q-btn--flat.nav-btn { font-size: 1.1rem !important; font-weight: 400 !important; text-transform: none !important; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        body { background: #1a1a2e; }
     """)
 
     with ui.header().classes("bg-primary items-center justify-between px-6 py-3"):
