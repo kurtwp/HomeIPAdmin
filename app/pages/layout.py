@@ -70,25 +70,16 @@ def page_layout(title: str = "Home Lab Manager"):
                     ui.separator()
 
                     from app.database.db import get_session
+                    from app.services.device_service import get_device_type_counts
                     with get_session() as _s:
-                        from app.models.device import Device as _Device, DeviceType as _DeviceType
-                        _types_with_devices = (
-                            _s.query(_DeviceType)
-                            .filter(_DeviceType.id.in_(
-                                _s.query(_Device.device_type_id).filter(_Device.device_type_id.isnot(None)).distinct()
-                            ))
-                            .order_by(_DeviceType.name)
-                            .all()
-                        )
-                        for dt in _types_with_devices:
-                            count = _s.query(_Device).filter(_Device.device_type_id == dt.id).count()
+                        _types_with_counts, _untyped = get_device_type_counts(_s)
+                        for dt, count in _types_with_counts:
                             ui.menu_item(
                                 f"{dt.name} ({count})",
                                 lambda d=dt: ui.navigate.to(f"/devices?category=type_{d.id}"),
                             )
-                        untyped = _s.query(_Device).filter(_Device.device_type_id.is_(None)).count()
-                        if untyped:
-                            ui.menu_item(f"Unclassified ({untyped})", lambda: ui.navigate.to("/devices?category=unclassified"))
+                        if _untyped:
+                            ui.menu_item(f"Unclassified ({_untyped})", lambda: ui.navigate.to("/devices?category=unclassified"))
 
                     ui.separator()
                     ui.menu_item("Manage Device Types", lambda: ui.navigate.to("/device-types"))

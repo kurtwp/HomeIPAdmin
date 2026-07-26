@@ -60,6 +60,29 @@ def get_all_devices(session: Session) -> list[Device]:
     return session.query(Device).order_by(Device.name).all()
 
 
+def get_device_type_counts(session: Session) -> tuple[list[tuple[DeviceType, int]], int]:
+    """Get device types that have devices, with counts.
+
+    Returns:
+        (types_with_counts, untyped_count) where types_with_counts is a list
+        of (DeviceType, count) tuples sorted by name.
+    """
+    types_with_devices = (
+        session.query(DeviceType)
+        .filter(DeviceType.id.in_(
+            session.query(Device.device_type_id).filter(Device.device_type_id.isnot(None)).distinct()
+        ))
+        .order_by(DeviceType.name)
+        .all()
+    )
+    types_with_counts = [
+        (dt, session.query(Device).filter(Device.device_type_id == dt.id).count())
+        for dt in types_with_devices
+    ]
+    untyped_count = session.query(Device).filter(Device.device_type_id.is_(None)).count()
+    return types_with_counts, untyped_count
+
+
 def get_device_by_id(session: Session, device_id: int) -> Device | None:
     """Get a single device by ID."""
     return session.query(Device).filter(Device.id == device_id).first()
