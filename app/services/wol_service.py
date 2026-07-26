@@ -1,7 +1,10 @@
 """Wake-on-LAN service — send magic packets to wake devices."""
 
+import logging
 import socket
 import struct
+
+logger = logging.getLogger(__name__)
 
 
 def send_wol(mac_address: str, broadcast: str = "255.255.255.255", port: int = 9) -> bool:
@@ -34,7 +37,7 @@ def send_wol(mac_address: str, broadcast: str = "255.255.255.255", port: int = 9
 
         return True
     except Exception as e:
-        print(f"WOL error: {e}")
+        logger.error("WOL error: %s", e)
         return False
 
 

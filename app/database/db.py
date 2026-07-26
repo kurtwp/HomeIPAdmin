@@ -1,9 +1,12 @@
 """SQLAlchemy database setup and session management."""
 
+import logging
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 from config import DATABASE_URL
+
+logger = logging.getLogger(__name__)
 
 
 class Base(DeclarativeBase):
@@ -62,7 +65,7 @@ def _run_migrations():
                 existing_columns = [c["name"] for c in inspector.get_columns(table)]
                 if column not in existing_columns:
                     conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
-                    print(f"  Migration: added {table}.{column}")
+                    logger.info("Migration: added %s.%s", table, column)
 
         # Remove unique constraint on monitored_hosts.ip_address (allow multiple monitors per IP)
         if "monitored_hosts" in inspector.get_table_names():
@@ -106,9 +109,9 @@ def _run_migrations():
                     """))
                     conn.execute(text("DROP TABLE monitored_hosts"))
                     conn.execute(text("ALTER TABLE monitored_hosts_new RENAME TO monitored_hosts"))
-                    print("  Migration: removed unique constraint on monitored_hosts.ip_address")
+                    logger.info("Migration: removed unique constraint on monitored_hosts.ip_address")
                 except Exception as e:
-                    print(f"  Migration warning (unique constraint): {e}")
+                    logger.warning("Migration warning (unique constraint): %s", e)
 
         conn.commit()
 

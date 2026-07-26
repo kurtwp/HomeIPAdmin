@@ -1,5 +1,6 @@
 """Scheduled network scanning using APScheduler."""
 
+import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
@@ -7,6 +8,8 @@ from apscheduler.triggers.cron import CronTrigger
 from app.database.db import get_session, SessionLocal
 from app.services.scanner import scan_network
 from app.models.network import Network
+
+logger = logging.getLogger(__name__)
 
 # Global scheduler instance
 scheduler = BackgroundScheduler()
@@ -91,6 +94,6 @@ def _run_scan(network_id: int):
     try:
         scan_network(session, network_id)
     except Exception as e:
-        print(f"Scheduled scan failed for network {network_id}: {e}")
+        logger.error("Scheduled scan failed for network %s: %s", network_id, e)
     finally:
         session.close()
