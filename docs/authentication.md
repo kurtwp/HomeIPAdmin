@@ -52,7 +52,7 @@ Currently only admin role is implemented. Viewer role is reserved for future use
 
 ## Security Details
 
-- Passwords are hashed with SHA-256 + random salt (never stored in plain text)
+- Passwords are hashed with bcrypt (never stored in plain text)
 - Sessions are stored in NiceGUI's encrypted user storage
 - The login page does not reveal whether a username exists (generic error message)
 - No rate limiting on login attempts (home lab context — not exposed to internet)
@@ -80,7 +80,7 @@ s.close()
 "
 ```
 
-## Rest User Password
+## Reset User Password
 
 ```
 python3 -c "

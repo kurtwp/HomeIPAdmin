@@ -92,22 +92,24 @@ def network_detail_page(network_id: int):
     from app.services.network_service import get_network_by_id, get_network_utilization, update_network
     from app.services.ip_service import get_ips_for_network
     from app.services.scanner import resolve_hostname
-    from app.database.db import get_session_direct
+    from app.database.db import get_session
     from app.pages.subnet_grid import render_subnet_grid
-    from app.pages.tag_assignment import render_tag_assignment
 
     page_layout()
-    session = get_session_direct()
-    network = get_network_by_id(session, network_id)
+    with get_session() as session:
+        network = get_network_by_id(session, network_id)
 
-    if not network:
-        with ui.column().classes("page-container"):
-            ui.label("Network not found").classes("text-xl text-red")
-        session.close()
-        return
+        if not network:
+            with ui.column().classes("page-container"):
+                ui.label("Network not found").classes("text-xl text-red")
+            return
 
-    util = get_network_utilization(session, network_id)
-    ips = get_ips_for_network(session, network_id)
+        util = get_network_utilization(session, network_id)
+        ips = get_ips_for_network(session, network_id)
+        from app.models.tag import Tag, network_tags
+        all_tags = session.query(Tag).order_by(Tag.name).all()
+        current_tags = list(network.tags)
+        current_tag_ids = {t.id for t in current_tags}
 
     with ui.column().classes("page-container w-full"):
         with ui.row().classes("items-center gap-4"):
@@ -144,10 +146,6 @@ def network_detail_page(network_id: int):
             with ui.card().classes("flex-1 min-w-[300px]"):
                 ui.label("Tags").classes("text-lg font-semibold mb-2")
                 # Inline tag assignment (from the reusable component logic)
-                from app.models.tag import Tag
-                all_tags = session.query(Tag).order_by(Tag.name).all()
-                current_tags = network.tags
-                current_tag_ids = {t.id for t in current_tags}
 
                 tags_display = ui.row().classes("flex-wrap gap-1 mb-3")
 
@@ -166,13 +164,21 @@ def network_detail_page(network_id: int):
                                         f'color:{tag.color}; border:1px solid {tag.color}40;">'
                                         f"{tag.name}</span>"
                                     )
+                                    def remove_net_tag(t=tag):
+                                        network.tags.remove(t)
+                                        with get_session() as s:
+                                            s.execute(
+                                                network_tags.delete().where(
+                                                    network_tags.c.network_id == network_id,
+                                                    network_tags.c.tag_id == t.id,
+                                                )
+                                            )
+                                            s.commit()
+                                        refresh_tag_display()
+
                                     ui.button(
                                         icon="close",
-                                        on_click=lambda t=tag: (
-                                            network.tags.remove(t),
-                                            session.commit(),
-                                            refresh_tag_display(),
-                                        ),
+                                        on_click=remove_net_tag,
                                     ).props("flat round size=xs").classes("ml-0")
 
                 refresh_tag_display()
@@ -184,11 +190,12 @@ def network_detail_page(network_id: int):
 
                         def add_net_tag():
                             if tag_select.value:
-                                tag = session.query(Tag).filter(Tag.id == tag_select.value).first()
-                                if tag and tag not in network.tags:
-                                    network.tags.append(tag)
-                                    session.commit()
-                                    refresh_tag_display()
+                                with get_session() as s:
+                                    tag = s.query(Tag).filter(Tag.id == tag_select.value).first()
+                                    if tag and tag not in network.tags:
+                                        network.tags.append(tag)
+                                        s.commit()
+                                        refresh_tag_display()
 
                         ui.button("Add", on_click=add_net_tag).props("flat color=primary size=sm")
 
@@ -208,11 +215,12 @@ def network_detail_page(network_id: int):
                     ).classes("w-40")
 
                     def save_dhcp_range():
-                        update_network(
-                            session, network.id,
-                            dhcp_start=dhcp_start_edit.value or None,
-                            dhcp_end=dhcp_end_edit.value or None,
-                        )
+                        with get_session() as s:
+                            update_network(
+                                s, network.id,
+                                dhcp_start=dhcp_start_edit.value or None,
+                                dhcp_end=dhcp_end_edit.value or None,
+                            )
                         ui.notify("DHCP range saved!", type="positive")
 
                     ui.button("Save", on_click=save_dhcp_range).props("color=primary size=sm")
@@ -221,13 +229,15 @@ def network_detail_page(network_id: int):
         with ui.row().classes("items-center justify-between mt-4"):
             ui.label("IP Addresses").classes("text-xl font-semibold")
             def refresh_hostnames():
-                updated = 0
-                for ip in ips:
-                    new_hostname = resolve_hostname(ip.address)
-                    if new_hostname and new_hostname != ip.hostname:
-                        ip.hostname = new_hostname
-                        updated += 1
-                session.commit()
+                with get_session() as s:
+                    fresh_ips = get_ips_for_network(s, network_id)
+                    updated = 0
+                    for ip in fresh_ips:
+                        new_hostname = resolve_hostname(ip.address)
+                        if new_hostname and new_hostname != ip.hostname:
+                            ip.hostname = new_hostname
+                            updated += 1
+                    s.commit()
                 ui.notify(f"Refreshed hostnames: {updated} updated", type="positive")
                 ui.navigate.to(f"/networks/{network_id}")
 
@@ -275,7 +285,8 @@ def network_detail_page(network_id: int):
                     ).classes("w-full").props('rows="8"')
 
                     def save_network_notes():
-                        update_network(session, network.id, notes=notes_editor.value)
+                        with get_session() as s:
+                            update_network(s, network.id, notes=notes_editor.value)
                         ui.notify("Notes saved!", type="positive")
 
                     ui.button("Save Notes", on_click=save_network_notes).props(
@@ -284,8 +295,6 @@ def network_detail_page(network_id: int):
 
                 with ui.tab_panel(preview_tab):
                     ui.markdown(network.notes or "*No notes yet*").classes("w-full")
-
-    session.close()
 
 
 @ui.page("/devices")
