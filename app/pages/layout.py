@@ -20,10 +20,12 @@ def page_layout(title: str = "Home Lab Manager"):
     ui.add_css("""
         .nav-link { color: white !important; text-decoration: none; font-size: 1.1rem; font-weight: 400; }
         .nav-link:hover { opacity: 0.8; }
-        .page-container { padding: 24px; max-width: 1400px; margin: 0 auto; }
+        .page-container { padding: 24px; max-width: 1400px; margin: 0 auto; animation: fadeIn 0.15s ease-in; }
         body.body--dark .q-card { background: #1e1e1e; }
         body.body--dark .q-table { background: #1e1e1e; }
         .q-btn--flat.nav-btn { font-size: 1.1rem !important; font-weight: 400 !important; text-transform: none !important; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        body { background: #1a1a2e; }
     """)
 
     with ui.header().classes("bg-primary items-center justify-between px-6 py-3"):
@@ -62,29 +64,26 @@ def page_layout(title: str = "Home Lab Manager"):
                     ui.menu_item("All Devices", lambda: ui.navigate.to("/devices"))
                     ui.separator()
 
-                    # Show categories that actually have devices
-                    from app.database.db import get_session_direct as _get_session
-                    from app.models.device import Device as _Device, DeviceType as _DeviceType
-                    _s = _get_session()
-                    _types_with_devices = (
-                        _s.query(_DeviceType)
-                        .filter(_DeviceType.id.in_(
-                            _s.query(_Device.device_type_id).filter(_Device.device_type_id.isnot(None)).distinct()
-                        ))
-                        .order_by(_DeviceType.name)
-                        .all()
-                    )
-                    for dt in _types_with_devices:
-                        count = _s.query(_Device).filter(_Device.device_type_id == dt.id).count()
-                        ui.menu_item(
-                            f"{dt.name} ({count})",
-                            lambda d=dt: ui.navigate.to(f"/devices?category=type_{d.id}"),
+                    from app.database.db import get_session
+                    with get_session() as _s:
+                        from app.models.device import Device as _Device, DeviceType as _DeviceType
+                        _types_with_devices = (
+                            _s.query(_DeviceType)
+                            .filter(_DeviceType.id.in_(
+                                _s.query(_Device.device_type_id).filter(_Device.device_type_id.isnot(None)).distinct()
+                            ))
+                            .order_by(_DeviceType.name)
+                            .all()
                         )
-                    # Check for untyped devices
-                    untyped = _s.query(_Device).filter(_Device.device_type_id.is_(None)).count()
-                    if untyped:
-                        ui.menu_item(f"Unclassified ({untyped})", lambda: ui.navigate.to("/devices?category=unclassified"))
-                    _s.close()
+                        for dt in _types_with_devices:
+                            count = _s.query(_Device).filter(_Device.device_type_id == dt.id).count()
+                            ui.menu_item(
+                                f"{dt.name} ({count})",
+                                lambda d=dt: ui.navigate.to(f"/devices?category=type_{d.id}"),
+                            )
+                        untyped = _s.query(_Device).filter(_Device.device_type_id.is_(None)).count()
+                        if untyped:
+                            ui.menu_item(f"Unclassified ({untyped})", lambda: ui.navigate.to("/devices?category=unclassified"))
 
                     ui.separator()
                     ui.menu_item("Manage Device Types", lambda: ui.navigate.to("/device-types"))
