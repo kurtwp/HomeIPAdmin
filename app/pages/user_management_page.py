@@ -177,7 +177,6 @@ def render_user_management():
                         {"name": "time", "label": "Time", "field": "time", "align": "left"},
                         {"name": "username", "label": "Username", "field": "username", "align": "left"},
                         {"name": "status", "label": "Status", "field": "status", "align": "center"},
-                        {"name": "ip", "label": "IP Address", "field": "ip", "align": "left"},
                     ],
                     rows=[
                         {
@@ -185,7 +184,6 @@ def render_user_management():
                             "time": a.timestamp.strftime("%Y-%m-%d %H:%M:%S") if a.timestamp else "—",
                             "username": a.username,
                             "status": "✅ Success" if a.success else "❌ Failed",
-                            "ip": a.ip_address or "—",
                         }
                         for a in attempts
                     ],
