@@ -12,4 +12,5 @@ ping3==4.0.8
 aiosqlite==0.20.0
 mac-vendor-lookup==0.1.15
 bcrypt==4.2.1
+alembic==1.18.5
 # SNMP uses system snmpget/snmpwalk commands (net-snmp-utils package)
