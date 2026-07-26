@@ -16,9 +16,9 @@ api = FastAPI(
     title="Home Lab Manager API",
     description="REST API for the Home Lab Manager — IPAM, device inventory, monitoring, and more.",
     version="1.0.0",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
 )
 
 # --- Include routers ---
@@ -32,7 +32,7 @@ api.include_router(docs_router)
 api.include_router(search_router)
 
 
-@api.get("/api/health", tags=["System"])
+@api.get("/health", tags=["System"])
 def health_check():
     """Simple health-check endpoint (no auth required)."""
     return {"status": "ok", "service": "home-lab-manager"}

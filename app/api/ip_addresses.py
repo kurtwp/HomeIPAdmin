@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, verify_api_key
 from app.api.schemas import IPAddressCreate, IPAddressResponse, IPAddressUpdate
-from app.models.ip_address import IPAddress
+from app.models.ip_address import IPAddress, AssignmentType, IPStatus
 
 router = APIRouter(prefix="/ips", tags=["IP Addresses"])
 
@@ -25,7 +25,7 @@ def list_ips(
     if network_id is not None:
         q = q.filter(IPAddress.network_id == network_id)
     if status:
-        q = q.filter(IPAddress.status == status)
+        q = q.filter(IPAddress.status == IPStatus(status))
     if search:
         q = q.filter(
             IPAddress.address.contains(search) | IPAddress.hostname.contains(search)
@@ -54,7 +54,10 @@ def create_ip(
     _key: str = Depends(verify_api_key),
 ):
     """Create a new IP address record."""
-    ip = IPAddress(**body.model_dump())
+    data = body.model_dump()
+    data["assignment_type"] = AssignmentType(data["assignment_type"])
+    data["status"] = IPStatus(data["status"])
+    ip = IPAddress(**data)
     db.add(ip)
     db.flush()
     db.refresh(ip)
@@ -73,6 +76,10 @@ def update_ip(
     if not ip:
         raise HTTPException(status_code=404, detail="IP address not found")
     for field, value in body.model_dump(exclude_unset=True).items():
+        if field == "assignment_type" and value is not None:
+            value = AssignmentType(value)
+        elif field == "status" and value is not None:
+            value = IPStatus(value)
         setattr(ip, field, value)
     db.flush()
     db.refresh(ip)
