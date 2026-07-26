@@ -1,13 +1,17 @@
 """Authentication service — simple user login with hashed passwords."""
 
 import hashlib
+import logging
 import secrets
 from datetime import datetime, timezone
 
+import bcrypt
 from sqlalchemy import String, Integer, DateTime, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, Session
 
 from app.database.db import Base, SessionLocal
+
+logger = logging.getLogger(__name__)
 
 
 class User(Base):
@@ -30,20 +34,28 @@ class User(Base):
 
 
 def _hash_password(password: str) -> str:
-    """Hash a password using SHA-256 with salt."""
-    salt = secrets.token_hex(16)
-    hashed = hashlib.sha256(f"{salt}{password}".encode()).hexdigest()
-    return f"{salt}:{hashed}"
+    """Hash a password using bcrypt."""
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password.encode(), salt).decode()
 
 
 def _verify_password(password: str, password_hash: str) -> bool:
-    """Verify a password against a stored hash."""
+    """Verify a password against a stored bcrypt hash."""
     try:
-        salt, hashed = password_hash.split(":")
-        check = hashlib.sha256(f"{salt}{password}".encode()).hexdigest()
-        return check == hashed
+        return bcrypt.checkpw(password.encode(), password_hash.encode())
     except (ValueError, AttributeError):
         return False
+
+
+def _is_legacy_hash(password_hash: str) -> bool:
+    """Check if a password hash is in the old SHA-256 format (salt:hash)."""
+    if ":" not in password_hash:
+        return False
+    parts = password_hash.split(":")
+    if len(parts) != 2:
+        return False
+    salt, hashed = parts
+    return len(salt) == 32 and len(hashed) == 64
 
 
 def create_user(session: Session, username: str, password: str, role: str = "admin") -> User:
@@ -65,6 +77,9 @@ def authenticate(session: Session, username: str, password: str) -> User | None:
         User.is_active == True,
     ).first()
     if user and _verify_password(password, user.password_hash):
+        if _is_legacy_hash(user.password_hash):
+            logger.info("Re-hashing legacy password for user %s", username)
+            user.password_hash = _hash_password(password)
         user.last_login = datetime.now(timezone.utc)
         session.commit()
         return user

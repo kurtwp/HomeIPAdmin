@@ -2,7 +2,7 @@
 #
 from nicegui import ui, app
 
-from config import APP_TITLE, APP_PORT
+from config import APP_TITLE, APP_PORT, STORAGE_SECRET
 from app.database.db import init_db, get_session
 from app.database.pstn_db import init_pstn_db
 from app.services.seed import seed_defaults
@@ -536,5 +536,5 @@ ui.run(
     native=False,
     reload=False,
     favicon="🌐",
-    storage_secret="homelab-manager-secret",
+    storage_secret=STORAGE_SECRET,
 )
