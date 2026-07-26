@@ -3,6 +3,12 @@
 from nicegui import ui
 
 
+def is_admin() -> bool:
+    """Check if the current user has admin role."""
+    from nicegui import app
+    return app.storage.user.get("role") == "admin"
+
+
 def page_layout(title: str = "Home Lab Manager"):
     """Create the shared navigation layout. Call at the top of each page function."""
     from nicegui import app
@@ -119,6 +125,7 @@ def page_layout(title: str = "Home Lab Manager"):
                     ui.separator()
                     ui.menu_item("Notifications", lambda: ui.navigate.to("/notifications"))
                     ui.menu_item("Webhook Triggers", lambda: ui.navigate.to("/webhook-triggers"))
+                    ui.menu_item("Users", lambda: ui.navigate.to("/users"))
                     ui.menu_item("Settings", lambda: ui.navigate.to("/settings"))
                     ui.menu_item("Backup & Restore", lambda: ui.navigate.to("/backup"))
 

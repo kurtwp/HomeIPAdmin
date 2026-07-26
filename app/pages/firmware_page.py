@@ -6,6 +6,7 @@ from app.services.firmware_service import (
     sync_firmware_info,
     get_all_firmware,
     get_devices_with_updates,
+    get_firmware_history,
 )
 from app.services.unifi_service import is_configured
 from app.database.db import get_session_direct as get_session
@@ -19,7 +20,8 @@ def render_firmware():
     with ui.column().classes("page-container w-full"):
         with ui.row().classes("w-full items-center justify-between"):
             ui.label("Firmware Tracker").classes("text-3xl font-bold")
-            ui.button(
+            spinner = ui.spinner(size="md").classes("hidden")
+            check_btn = ui.button(
                 "Check for Updates", icon="refresh",
                 on_click=lambda: run_firmware_check(),
             ).props("color=primary")
@@ -44,8 +46,12 @@ def render_firmware():
 
         def run_firmware_check():
             check_result.text = "Checking..."
+            spinner.visible = True
+            check_btn.disable()
             ui.notify("Checking firmware versions...", type="info")
             result = sync_firmware_info()
+            spinner.visible = False
+            check_btn.enable()
             if result["errors"]:
                 for err in result["errors"][:3]:
                     ui.notify(f"Error: {err}", type="negative")
@@ -60,7 +66,40 @@ def render_firmware():
                 )
             else:
                 ui.notify("All devices up to date", type="positive")
-            refresh_firmware_list()
+        refresh_firmware_list()
+
+        # Firmware history
+        ui.separator().classes("my-6")
+        with ui.card().classes("w-full"):
+            ui.label("Firmware Change History").classes("text-lg font-semibold mb-2")
+            ui.label("Records of firmware version changes detected on devices.").classes(
+                "text-sm text-gray-500 mb-3"
+            )
+            history = get_firmware_history(limit=30)
+            if history:
+                columns = [
+                    {"name": "time", "label": "Detected", "field": "time", "align": "left"},
+                    {"name": "device", "label": "Device", "field": "device", "align": "left"},
+                    {"name": "old", "label": "Old Version", "field": "old", "align": "left"},
+                    {"name": "arrow", "label": "", "field": "arrow", "align": "center"},
+                    {"name": "new", "label": "New Version", "field": "new", "align": "left"},
+                ]
+                rows = [
+                    {
+                        "id": h.id,
+                        "time": h.detected_at.strftime("%Y-%m-%d %H:%M") if h.detected_at else "—",
+                        "device": h.device_name,
+                        "old": h.old_version or "—",
+                        "arrow": "→",
+                        "new": h.new_version or "—",
+                    }
+                    for h in history
+                ]
+                ui.table(columns=columns, rows=rows, row_key="id").classes("w-full").props(
+                    "flat bordered dense"
+                )
+            else:
+                ui.label("No firmware changes recorded yet.").classes("text-gray-500 italic")
 
         def refresh_firmware_list():
             firmware_container.clear()

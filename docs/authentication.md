@@ -45,17 +45,37 @@ Two roles are supported:
 
 | Role | Access |
 |------|--------|
-| admin | Full access — all pages, settings, data modification |
-| viewer | (Future) Read-only access — view data but can't modify |
+| admin | Full access — all pages, settings, data modification, user management |
+| viewer | Read-only access — can view data but cannot modify, delete, or access admin pages |
 
-Currently only admin role is implemented. Viewer role is reserved for future use.
+Admins can manage users via **Tools → Users** (`/users`). Viewer users are blocked from write operations and admin-only pages.
 
 ## Security Details
 
 - Passwords are hashed with bcrypt (never stored in plain text)
 - Sessions are stored in NiceGUI's encrypted user storage
 - The login page does not reveal whether a username exists (generic error message)
-- No rate limiting on login attempts (home lab context — not exposed to internet)
+- Failed login attempts are tracked with IP address and timestamp
+- Account lockout after 5 failed attempts within 15 minutes (configurable in `auth_service.py`)
+- Last-admin protection: cannot delete or deactivate the only admin user
+
+## User Management
+
+Navigate to **Tools → Users** (`/users`) to manage user accounts (admin only).
+
+### Features
+
+- **Add User** — create new accounts with admin or viewer role
+- **Change Role** — switch between admin and viewer via dropdown
+- **Activate/Deactivate** — disable a user without deleting them
+- **Delete User** — permanently remove an account (requires confirmation)
+- **Login History** — view recent login attempts with status and IP address
+
+### Safeguards
+
+- Cannot delete or deactivate the last admin user
+- Cannot demote the last admin to viewer
+- Users cannot modify their own role from the dropdown
 
 ## Disabling Authentication
 
@@ -69,30 +89,30 @@ Or from the app: if you have access, you could run this via a Python script. Wit
 
 ## Check your database for users
 
-```
+```bash
 python3 -c "
-from app.database.db import SessionLocal
-from app.services.auth_service import User
-s = SessionLocal()
-for u in s.query(User).all():
-    print(f'User: {u.username}, Role: {u.role}, Active: {u.is_active}')
-s.close()
+from app.database.db import get_session
+from app.models.user import User
+with get_session() as s:
+    for u in s.query(User).all():
+        print(f'User: {u.username}, Role: {u.role}, Active: {u.is_active}')
 "
 ```
 
 ## Reset User Password
 
-```
+```bash
 python3 -c "
-from app.database.db import SessionLocal
-from app.services.auth_service import User, _hash_password
-s = SessionLocal()
-u = s.query(User).first()
-if u:
-    u.password_hash = _hash_password('changeme')
-    s.commit()
-    print(f'Reset password for {u.username} to: changeme')
-s.close()
+from app.database.db import get_session
+from app.models.user import User
+from app.services.auth_service import _hash_password
+with get_session() as s:
+    u = s.query(User).first()
+    if u:
+        u.password_hash = _hash_password('changeme')
+        s.commit()
+        print(f'Reset password for {u.username} to: changeme')
+"
 ```
 ADMIN password changed to `changeme`
 

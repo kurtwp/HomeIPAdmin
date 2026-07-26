@@ -15,6 +15,9 @@ from app.models.user import User
 from app.models.ssl_certificate import SSLCertificate
 from app.models.device_firmware import DeviceFirmware
 from app.models.notification_log import NotificationLog
+from app.models.notification_preference import NotificationPreference
+from app.models.login_attempt import LoginAttempt
+from app.models.firmware_history import FirmwareHistory
 from app.services.mac_watchlist_service import KnownMAC
 from app.services.webhook_trigger_service import WebhookTrigger
 from app.services.domain_service import TrackedDomain
@@ -43,6 +46,9 @@ __all__ = [
     "SSLCertificate",
     "DeviceFirmware",
     "NotificationLog",
+    "NotificationPreference",
+    "LoginAttempt",
+    "FirmwareHistory",
     "KnownMAC",
     "WebhookTrigger",
     "TrackedDomain",

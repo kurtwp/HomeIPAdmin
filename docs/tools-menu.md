@@ -14,8 +14,9 @@ The **wrench icon** (🔧) in the top-right corner of the navigation bar opens a
 | MAC Watchlist | `/mac-watchlist` | Track known MACs, flag unknown devices |
 | Inventory Export | `/inventory-export` | Generate Ansible/Terraform inventory files |
 | Archived Notes | `/archived-notes` | Browse notes from deleted IPs/devices |
-| Notifications | `/notifications` | Alert settings, test, and history |
+| Notifications | `/notifications` | Alert settings, per-event preferences, test, and history |
 | Webhook Triggers | `/webhook-triggers` | Event-driven webhooks to external services |
+| Users | `/users` | Manage user accounts and roles (admin only) |
 | Settings | `/settings` | Edit .env configuration from the UI |
 | Backup & Restore | `/backup` | Database backup and restore |
 

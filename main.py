@@ -289,6 +289,12 @@ def archived_notes_page():
     render_archived_notes()
 
 
+@ui.page("/users")
+def user_management_page():
+    from app.pages.user_management_page import render_user_management
+    render_user_management()
+
+
 # --- PSTN / Telephony routes ---
 
 @ui.page("/pstn")

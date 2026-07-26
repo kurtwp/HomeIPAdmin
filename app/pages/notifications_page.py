@@ -7,6 +7,10 @@ from app.services.notification_service import (
     get_enabled_channels,
     get_notification_history,
     send_notification,
+    get_all_preferences,
+    set_preference,
+    get_event_type_label,
+    EVENT_TYPES,
 )
 from app.pages.layout import page_layout
 
@@ -113,6 +117,39 @@ NOTIFY_PUSHOVER_USER=your_user_key""", language="bash").classes("w-full")
 
             ui.button("Send Test", icon="send", on_click=send_test).props("color=primary")
 
+        # Per-event notification preferences
+        channels = get_enabled_channels()
+        if channels:
+            with ui.card().classes("w-full mt-4"):
+                ui.label("Event Preferences").classes("text-lg font-semibold mb-2")
+                ui.label(
+                    "Choose which channels receive notifications for each event type. "
+                    "Disabled channels are skipped when that event fires."
+                ).classes("text-sm text-gray-500 mb-3")
+
+                prefs = get_all_preferences()
+
+                with ui.row().classes("items-center gap-2 mb-3 text-sm font-medium"):
+                    ui.label("Event").classes("w-48")
+                    for ch in channels:
+                        ui.label(ch.title()).classes("w-24 text-center")
+
+                for event_type in EVENT_TYPES:
+                    with ui.row().classes("items-center gap-2"):
+                        ui.label(get_event_type_label(event_type)).classes("w-48 text-sm")
+                        for ch in channels:
+                            is_on = prefs.get(event_type, {}).get(ch, True)
+                            toggle = ui.switch(
+                                value=is_on,
+                                on_change=lambda e, et=event_type, c=ch: set_preference(
+                                    et, c, e.value
+                                ),
+                            ).classes("w-24 justify-center")
+                ui.separator().classes("my-2")
+                ui.label(
+                    "Tip: Uncheck a channel for an event to silence it without disabling the whole channel."
+                ).classes("text-xs text-gray-400 italic")
+
         # Notification triggers
         with ui.card().classes("w-full mt-4"):
             ui.label("Alert Triggers").classes("text-lg font-semibold mb-2")
@@ -124,6 +161,11 @@ NOTIFY_PUSHOVER_USER=your_user_key""", language="bash").classes("w-full")
                 ("🔴 Host Down", "When an uptime-monitored host stops responding", "High"),
                 ("🟢 Host Recovered", "When a previously-down host comes back online", "Normal"),
                 ("📦 Firmware Update", "When a new firmware version is detected for a UniFi device", "Low"),
+                ("🆕 New Device", "When an unknown MAC address is seen on the network", "Normal"),
+                ("⚠️ Capacity Warning", "When IP usage on a network exceeds the threshold", "Normal"),
+                ("🔍 Scan Complete", "When a scheduled scan finishes", "Low"),
+                ("🔒 SSL Check Failed", "When an SSL certificate check encounters an error", "High"),
+                ("🌐 Domain Check Failed", "When a domain WHOIS lookup fails", "Normal"),
             ]
 
             columns = [

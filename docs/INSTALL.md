@@ -204,8 +204,12 @@ When new code is pushed to GitHub:
 ```bash
 cd /opt/HomeLabManager
 sudo git pull
+source .venv/bin/activate
+python -m alembic upgrade head
 sudo systemctl restart homeipmanager
 ```
+
+> The `alembic upgrade head` step applies any database schema changes. It's safe to run even if no migrations are needed.
 
 ---
 
@@ -257,9 +261,11 @@ sudo systemctl restart homeipmanager
 ---
 ## Update HomeLabManager
 To update it in the future when you push new code:
-```
+```bash
 cd /opt/HomeLabManager
 sudo git pull
+source .venv/bin/activate
+python -m alembic upgrade head
 sudo systemctl restart homeipmanager
 ```
 ## Troubleshooting
@@ -341,6 +347,10 @@ sudo systemctl start homeipmanager
 ├── home_lab_manager.db  # SQLite database (NOT in git)
 ├── requirements.txt     # Python dependencies
 ├── homeipmanager.service # Systemd unit file
+├── alembic/             # Database migrations
+│   ├── alembic.ini
+│   ├── env.py
+│   └── versions/
 ├── app/
 │   ├── database/        # SQLAlchemy setup
 │   ├── models/          # ORM models

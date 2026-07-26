@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.database.db import get_session
 from app.models.device_firmware import DeviceFirmware
+from app.models.firmware_history import FirmwareHistory
 from app.services.unifi_service import fetch_devices_from_unifi, is_configured
 
 
@@ -84,9 +85,16 @@ def sync_firmware_info() -> dict:
                     existing.update_available = is_upgradable
                     existing.last_checked = now
 
-                    # Detect if firmware was just updated
+                    # Detect if firmware was just updated — record history
                     if old_version and current_fw and old_version != current_fw:
                         existing.last_updated = now
+                        history_entry = FirmwareHistory(
+                            device_mac=mac,
+                            device_name=name,
+                            old_version=old_version,
+                            new_version=current_fw,
+                        )
+                        session.add(history_entry)
 
                     # Detect newly available updates for notifications
                     if is_upgradable and not old_update_available:
@@ -181,5 +189,16 @@ def get_devices_with_updates(session: Session = None) -> list[DeviceFirmware]:
             s.query(DeviceFirmware)
             .filter(DeviceFirmware.update_available == True)
             .order_by(DeviceFirmware.device_name)
+            .all()
+        )
+
+
+def get_firmware_history(limit: int = 50) -> list[FirmwareHistory]:
+    """Get recent firmware version change history."""
+    with get_session() as session:
+        return (
+            session.query(FirmwareHistory)
+            .order_by(FirmwareHistory.detected_at.desc())
+            .limit(limit)
             .all()
         )

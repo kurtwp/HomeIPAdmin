@@ -103,6 +103,22 @@ The following events automatically send notifications:
 | 🔴 Host Down | High | An uptime-monitored host stops responding |
 | 🟢 Host Recovered | Normal | A previously-down host comes back online |
 | 📦 Firmware Update | Low | A new firmware version is detected for a UniFi device |
+| 🆕 New Device | Normal | An unknown MAC address is seen on the network |
+| ⚠️ Capacity Warning | Normal | IP usage on a network exceeds the threshold |
+| 🔍 Scan Complete | Low | A scheduled network scan finishes |
+| 🔒 SSL Check Failed | High | An SSL certificate check encounters an error |
+| 🌐 Domain Check Failed | Normal | A domain WHOIS lookup fails |
+
+## Per-Event Preferences
+
+You can control which channels receive notifications for each event type independently. On the Notifications page, the **Event Preferences** section shows a toggle matrix:
+
+- Rows = event types (Host Down, Firmware Update, etc.)
+- Columns = enabled channels (Email, Webhook, Pushover, Telegram)
+
+Uncheck a channel for an event to silence it without disabling the entire channel. For example, you might want "Host Down" alerts via Telegram but "Scan Complete" only via email.
+
+> Preferences are stored in the database and take effect immediately — no restart needed.
 
 ## Testing Notifications
 
@@ -125,7 +141,10 @@ This helps troubleshoot delivery issues without checking external services.
 2. When a host transitions from up → down (or down → up), the notification service is called
 3. The **firmware checker** runs every 6 hours and compares device firmware versions
 4. When a new update is first detected, a notification fires
-5. All notifications are logged to the database regardless of delivery success
+5. The **SSL checker** runs every 12 hours and verifies certificate validity
+6. The **domain checker** runs daily and verifies WHOIS expiry dates
+7. Per-event preferences are checked before sending — disabled channels are skipped
+8. All notifications are logged to the database regardless of delivery success
 
 ## Tips
 

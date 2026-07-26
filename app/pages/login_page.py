@@ -9,6 +9,9 @@ from app.services.auth_service import (
     get_user_count,
     change_password,
     is_auth_enabled,
+    is_locked_out,
+    MAX_FAILED_ATTEMPTS,
+    LOCKOUT_MINUTES,
 )
 
 
@@ -45,10 +48,32 @@ def render_login():
                 ).props('outlined dense')
 
                 error_label = ui.label("").classes("text-red text-sm")
+                lockout_label = ui.label("").classes("text-orange text-sm")
+
+                def _get_client_ip() -> str | None:
+                    try:
+                        from starlette.requests import Request
+                        from nicegui.context import get_client
+                        client = get_client()
+                        if client and hasattr(client, 'request'):
+                            return client.request.client.host if client.request.client else None
+                    except Exception:
+                        pass
+                    return None
 
                 def do_login():
                     session = get_session()
-                    user = authenticate(session, username_input.value, password_input.value)
+
+                    # Check lockout first
+                    if is_locked_out(session, username_input.value):
+                        session.close()
+                        error_label.text = ""
+                        lockout_label.text = f"Account locked. Try again in {LOCKOUT_MINUTES} minutes."
+                        return
+
+                    lockout_label.text = ""
+                    ip = _get_client_ip()
+                    user = authenticate(session, username_input.value, password_input.value, ip_address=ip)
 
                     if user:
                         # Extract values before closing session

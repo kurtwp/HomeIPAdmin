@@ -1,6 +1,7 @@
-"""Notification service — sends alerts via email, webhook, or Pushover.
+"""Notification service — sends alerts via email, webhook, Pushover, or Telegram.
 
-Supports multiple channels. Configure via .env variables.
+Supports multiple channels with per-event toggle via NotificationPreference.
+Configure channels via .env variables.
 """
 
 import os
@@ -14,6 +15,19 @@ import httpx
 
 from app.database.db import get_session
 from app.models.notification_log import NotificationLog
+from app.models.notification_preference import NotificationPreference
+
+# All known event types for the preferences UI
+EVENT_TYPES = [
+    "host_down",
+    "host_recovered",
+    "firmware_update",
+    "new_device",
+    "capacity_warning",
+    "scan_complete",
+    "ssl_check_failed",
+    "domain_check_failed",
+]
 
 
 # --- Configuration ---
@@ -76,7 +90,12 @@ def get_enabled_channels() -> list[str]:
 
 # --- Send Functions ---
 
-def send_notification(subject: str, message: str, priority: str = "normal") -> list[dict]:
+def send_notification(
+    subject: str,
+    message: str,
+    priority: str = "normal",
+    event_type: str | None = None,
+) -> list[dict]:
     """
     Send a notification through all enabled channels.
 
@@ -84,6 +103,9 @@ def send_notification(subject: str, message: str, priority: str = "normal") -> l
         subject: Short summary/title
         message: Full message body
         priority: "low", "normal", "high", "critical"
+        event_type: Event category (e.g. "host_down", "new_device"). If provided,
+                    per-channel preferences from notification_preferences table are
+                    checked before sending.
 
     Returns:
         List of results per channel: [{"channel": str, "success": bool, "error": str|None}]
@@ -92,19 +114,25 @@ def send_notification(subject: str, message: str, priority: str = "normal") -> l
     if not config["enabled"]:
         return []
 
-    results = []
+    # Build set of channels to skip based on per-event preferences
+    skipped_channels: set[str] = set()
+    if event_type:
+        skipped_channels = _get_disabled_channels(event_type)
 
-    if config["email_enabled"]:
-        results.append(_send_email(config, subject, message))
+    channels = [
+        ("email", config["email_enabled"], lambda: _send_email(config, subject, message)),
+        ("webhook", config["webhook_enabled"], lambda: _send_webhook(config, subject, message, priority)),
+        ("pushover", config["pushover_enabled"], lambda: _send_pushover(config, subject, message, priority)),
+        ("telegram", config["telegram_enabled"], lambda: _send_telegram(config, subject, message)),
+    ]
 
-    if config["webhook_enabled"]:
-        results.append(_send_webhook(config, subject, message, priority))
-
-    if config["pushover_enabled"]:
-        results.append(_send_pushover(config, subject, message, priority))
-
-    if config["telegram_enabled"]:
-        results.append(_send_telegram(config, subject, message))
+    results: list[dict] = []
+    for channel_name, channel_enabled, send_fn in channels:
+        if not channel_enabled:
+            continue
+        if channel_name in skipped_channels:
+            continue
+        results.append(send_fn())
 
     # Log all notifications
     with get_session() as session:
@@ -238,6 +266,71 @@ def _send_telegram(config: dict, subject: str, message: str) -> dict:
         return {"channel": "telegram", "success": False, "error": str(e)}
 
 
+# --- Per-Event Preferences ---
+
+def _get_disabled_channels(event_type: str) -> set[str]:
+    """Return set of channel names disabled for a given event type."""
+    with get_session() as session:
+        prefs = (
+            session.query(NotificationPreference)
+            .filter(
+                NotificationPreference.event_type == event_type,
+                NotificationPreference.enabled == False,
+            )
+            .all()
+        )
+        return {p.channel for p in prefs}
+
+
+def get_all_preferences() -> dict[str, dict[str, bool]]:
+    """Return all notification preferences as {event_type: {channel: enabled}}.
+
+    Only returns explicitly set preferences. Channels not in the DB default to True.
+    """
+    with get_session() as session:
+        prefs = session.query(NotificationPreference).all()
+    result: dict[str, dict[str, bool]] = {}
+    for p in prefs:
+        result.setdefault(p.event_type, {})[p.channel] = p.enabled
+    return result
+
+
+def set_preference(event_type: str, channel: str, enabled: bool) -> None:
+    """Create or update a notification preference for a specific event/channel."""
+    with get_session() as session:
+        pref = (
+            session.query(NotificationPreference)
+            .filter(
+                NotificationPreference.event_type == event_type,
+                NotificationPreference.channel == channel,
+            )
+            .first()
+        )
+        if pref is None:
+            pref = NotificationPreference(
+                event_type=event_type, channel=channel, enabled=enabled
+            )
+            session.add(pref)
+        else:
+            pref.enabled = enabled
+        session.commit()
+
+
+def get_event_type_label(event_type: str) -> str:
+    """Human-readable label for an event type."""
+    labels = {
+        "host_down": "Host Down",
+        "host_recovered": "Host Recovered",
+        "firmware_update": "Firmware Update Available",
+        "new_device": "New Device Detected",
+        "capacity_warning": "Capacity Warning",
+        "scan_complete": "Scan Complete",
+        "ssl_check_failed": "SSL Certificate Check Failed",
+        "domain_check_failed": "Domain Check Failed",
+    }
+    return labels.get(event_type, event_type)
+
+
 # --- Convenience Functions for Common Alerts ---
 
 def notify_host_down(host_name: str, ip_address: str, consecutive_failures: int) -> list[dict]:
@@ -248,7 +341,7 @@ def notify_host_down(host_name: str, ip_address: str, consecutive_failures: int)
         f"Consecutive failures: {consecutive_failures}\n"
         f"Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
     )
-    return send_notification(subject, message, priority="high")
+    return send_notification(subject, message, priority="high", event_type="host_down")
 
 
 def notify_host_recovered(host_name: str, ip_address: str, downtime_checks: int) -> list[dict]:
@@ -259,7 +352,7 @@ def notify_host_recovered(host_name: str, ip_address: str, downtime_checks: int)
         f"Was down for {downtime_checks} check(s).\n"
         f"Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
     )
-    return send_notification(subject, message, priority="normal")
+    return send_notification(subject, message, priority="normal", event_type="host_recovered")
 
 
 def notify_firmware_update(device_name: str, current_version: str, available_version: str) -> list[dict]:
@@ -271,7 +364,66 @@ def notify_firmware_update(device_name: str, current_version: str, available_ver
         f"Available: {available_version}\n"
         f"Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
     )
-    return send_notification(subject, message, priority="low")
+    return send_notification(subject, message, priority="low", event_type="firmware_update")
+
+
+def notify_new_device(device_name: str, ip_address: str, mac_address: str) -> list[dict]:
+    """Send alert when a new device is detected on the network."""
+    subject = f"🆕 New device: {device_name}"
+    message = (
+        f"A new device was detected on the network.\n"
+        f"Name: {device_name}\n"
+        f"IP: {ip_address}\n"
+        f"MAC: {mac_address}\n"
+        f"Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+    )
+    return send_notification(subject, message, priority="normal", event_type="new_device")
+
+
+def notify_capacity_warning(network_name: str, used: int, total: int) -> list[dict]:
+    """Send alert when IP capacity exceeds threshold."""
+    pct = round(used / total * 100, 1) if total > 0 else 0
+    subject = f"⚠️ Capacity warning: {network_name}"
+    message = (
+        f"Network '{network_name}' is at {pct}% capacity.\n"
+        f"Used: {used} / {total} addresses\n"
+        f"Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+    )
+    return send_notification(subject, message, priority="normal", event_type="capacity_warning")
+
+
+def notify_scan_complete(networks_scanned: int, new_devices: int) -> list[dict]:
+    """Send notification when a scheduled scan finishes."""
+    subject = f"🔍 Scan complete: {networks_scanned} network(s)"
+    message = (
+        f"Network scan completed.\n"
+        f"Networks scanned: {networks_scanned}\n"
+        f"New devices found: {new_devices}\n"
+        f"Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+    )
+    return send_notification(subject, message, priority="low", event_type="scan_complete")
+
+
+def notify_ssl_check_failed(domain: str, error: str) -> list[dict]:
+    """Send alert when an SSL certificate check fails."""
+    subject = f"🔒 SSL check failed: {domain}"
+    message = (
+        f"SSL certificate check failed for '{domain}'.\n"
+        f"Error: {error}\n"
+        f"Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+    )
+    return send_notification(subject, message, priority="high", event_type="ssl_check_failed")
+
+
+def notify_domain_check_failed(domain: str, error: str) -> list[dict]:
+    """Send alert when a domain WHOIS check fails."""
+    subject = f"🌐 Domain check failed: {domain}"
+    message = (
+        f"Domain WHOIS check failed for '{domain}'.\n"
+        f"Error: {error}\n"
+        f"Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+    )
+    return send_notification(subject, message, priority="normal", event_type="domain_check_failed")
 
 
 def get_notification_history(limit: int = 50) -> list[NotificationLog]:

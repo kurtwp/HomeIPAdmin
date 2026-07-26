@@ -193,7 +193,8 @@ See [Domain Tracker](domain-tracker) for full documentation.
 - **Summary cards:** Total tracked, up-to-date, updates available
 - **Updates Available section:** Highlighted cards showing device name, current version, available version
 - **Up to Date section:** Table of devices running latest firmware
-- **Manual check button:** Run an immediate scan
+- **Manual check button:** Run an immediate scan (shows spinner while checking)
+- **Firmware Change History:** Table of all detected version changes with old → new version and timestamp
 
 ### Data Tracked
 
