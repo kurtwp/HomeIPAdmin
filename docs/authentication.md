@@ -65,8 +65,36 @@ To disable auth and go back to open access:
 # Connect to your database and delete all users
 sqlite3 /opt/HomeLabManager/home_lab_manager.db "DELETE FROM users;"
 ```
-
 Or from the app: if you have access, you could run this via a Python script. With no users in the database, auth is automatically disabled.
+
+## Check your database for users
+
+```
+python3 -c "
+from app.database.db import SessionLocal
+from app.services.auth_service import User
+s = SessionLocal()
+for u in s.query(User).all():
+    print(f'User: {u.username}, Role: {u.role}, Active: {u.is_active}')
+s.close()
+"
+```
+
+# Rest User Password
+
+```
+python3 -c "
+from app.database.db import SessionLocal
+from app.services.auth_service import User, _hash_password
+s = SessionLocal()
+u = s.query(User).first()
+if u:
+    u.password_hash = _hash_password('changeme')
+    s.commit()
+    print(f'Reset password for {u.username} to: changeme')
+s.close()
+```
+ADMIN password changed to `changeme`
 
 ## Tips
 
