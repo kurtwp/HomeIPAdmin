@@ -66,7 +66,7 @@ def render_firmware():
                 )
             else:
                 ui.notify("All devices up to date", type="positive")
-        refresh_firmware_list()
+            refresh_firmware_list()
 
         # Firmware history
         ui.separator().classes("my-6")
