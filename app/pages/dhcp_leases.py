@@ -5,6 +5,9 @@ from datetime import datetime, timezone
 from nicegui import ui
 
 from app.services.unifi_service import fetch_dhcp_leases, is_configured
+from app.services.ip_service import adopt_lease
+from app.models.ip_address import IPAddress
+from app.database.db import get_session_direct as get_session
 from app.pages.layout import page_layout
 
 
@@ -45,6 +48,8 @@ def render_dhcp_leases():
     """Render the DHCP lease viewer page."""
     page_layout()
 
+    session = get_session()
+
     with ui.column().classes("page-container w-full"):
         with ui.row().classes("w-full items-center justify-between"):
             ui.label("DHCP Leases").classes("text-3xl font-bold")
@@ -65,6 +70,7 @@ def render_dhcp_leases():
                     "⚠️ UniFi integration not configured. "
                     "Set UNIFI_API_KEY, UNIFI_BASE_URL, and UNIFI_SITE_ID in .env."
                 ).classes("text-orange")
+            session.close()
             return
 
         status = ui.label("").classes("text-sm text-gray-500 mt-2")
@@ -76,7 +82,8 @@ def render_dhcp_leases():
             refresh_btn.disable()
             try:
                 leases = fetch_dhcp_leases()
-                render_leases(leases)
+                tracked = {ip.address for ip in session.query(IPAddress).all()}
+                render_leases(leases, tracked)
                 status.text = (
                     f"{len(leases)} client(s) — "
                     f"fetched {datetime.now():%H:%M:%S}"
@@ -90,7 +97,7 @@ def render_dhcp_leases():
                 spinner.visible = False
                 refresh_btn.enable()
 
-        def render_leases(leases: list[dict]):
+        def render_leases(leases: list[dict], tracked: set):
             container.clear()
             if not leases:
                 with container:
@@ -100,6 +107,7 @@ def render_dhcp_leases():
             dhcp = [l for l in leases if not l["is_static"]]
             static = [l for l in leases if l["is_static"]]
             expired = [l for l in leases if l["lease_seconds_left"] == 0]
+            untracked = [l for l in leases if l["ip"] not in tracked]
 
             with ui.row().classes("gap-4 mb-2"):
                 with ui.card().classes("p-3"):
@@ -115,6 +123,9 @@ def render_dhcp_leases():
                     with ui.card().classes("p-3"):
                         ui.label(str(len(expired))).classes("text-2xl font-bold text-orange")
                         ui.label("Expiring/Expired").classes("text-xs text-gray-500")
+                with ui.card().classes("p-3"):
+                    ui.label(str(len(untracked))).classes("text-2xl font-bold text-red")
+                    ui.label("Untracked in IP DB").classes("text-xs text-gray-500")
 
             cols = [
                 {"name": "ip", "label": "IP Address", "field": "ip", "align": "left", "sortable": True},
@@ -127,6 +138,8 @@ def render_dhcp_leases():
                 {"name": "left", "label": "Time Left", "field": "left", "align": "left"},
                 {"name": "uptime", "label": "Connected", "field": "uptime", "align": "left"},
                 {"name": "type", "label": "Type", "field": "type", "align": "center", "sortable": True},
+                {"name": "tracked", "label": "In IP DB", "field": "tracked", "align": "center", "sortable": True},
+                {"name": "actions", "label": "", "field": "actions", "align": "center"},
             ]
 
             rows = []
@@ -148,6 +161,8 @@ def render_dhcp_leases():
                         "left": left,
                         "uptime": _fmt_uptime(l["uptime_sec"]),
                         "type": "Static" if l["is_static"] else "DHCP",
+                        "tracked": l["ip"] in tracked,
+                        "is_static": l["is_static"],
                     }
                 )
 
@@ -158,6 +173,38 @@ def render_dhcp_leases():
             table = ui.table(columns=cols, rows=rows, row_key="id").classes(
                 "w-full"
             ).props("flat bordered dense")
+
+            table.add_slot(
+                "body-cell-tracked",
+                '''
+                <q-td :props="props">
+                    <q-badge :color="props.row.tracked ? 'green' : 'red'" outline>
+                        {{ props.row.tracked ? 'Tracked' : 'Untracked' }}
+                    </q-badge>
+                </q-td>
+                ''',
+            )
+
+            table.add_slot(
+                "body-cell-actions",
+                '''
+                <q-td :props="props">
+                    <q-btn flat dense icon="add" color="primary" size="sm"
+                        label="Adopt" @click="$parent.$emit('adopt', props.row)" />
+                </q-td>
+                ''',
+            )
+
+            def handle_adopt(e):
+                row = e.args
+                try:
+                    created, msg = adopt_lease(session, row)
+                    ui.notify(msg, type="positive" if created else "info")
+                    load_leases()
+                except Exception as exc:
+                    ui.notify(f"Adopt failed: {exc}", type="negative")
+
+            table.on("adopt", handle_adopt)
 
             def apply_filter():
                 q = (search.value or "").strip().lower()
@@ -174,3 +221,5 @@ def render_dhcp_leases():
             search.on("value", apply_filter)
 
         load_leases()
+
+    session.close()

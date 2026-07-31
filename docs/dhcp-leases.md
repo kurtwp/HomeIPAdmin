@@ -24,6 +24,7 @@ The DHCP lease viewer lists every active client on your UniFi network — both D
 | DHCP Leases | Clients with an active DHCP lease |
 | Static | Clients with static/fixed IPs (or lease `0`) |
 | Expiring/Expired | Clients whose lease has ≤ 0 seconds remaining (shown only when non-zero) |
+| Untracked in IP DB | Live clients that have **no matching record** in the local IP inventory |
 
 ### Clients Table
 
@@ -39,6 +40,18 @@ The DHCP lease viewer lists every active client on your UniFi network — both D
 | Time Left | Human-readable time until lease expiry — ⚠️ prefix when under 1 hour |
 | Connected | Client uptime |
 | Type | `DHCP` or `Static` |
+| In IP DB | Whether this IP already exists in the local inventory (`Tracked` / `Untracked`) |
+| Adopt | One-click import of the lease into the IP database |
+
+### Adopting a lease into the IP DB
+
+Click **Adopt** on any row to import that client into the local IP inventory:
+
+- The lease's IP is matched against local network CIDRs to pick the network.
+- A new record is created with `source="unifi_client"` (assignment `DHCP`/`Static` based on the lease, status `active`, `last_seen` = now), or the existing record is refreshed in place (hostname, MAC, network, status). No duplicates are created.
+- If no local network matches the IP, adoption is blocked with a hint to run **UniFi Sync → Sync Networks** first.
+
+See [IP addresses tab](ips-tab) for how adopted records appear.
 
 ### Search Filter
 
@@ -69,7 +82,7 @@ A client is marked **static** when:
 
 ## Refreshing
 
-Click **Refresh** to re-fetch clients from the controller. Data is live — no database writes occur.
+Click **Refresh** to re-fetch clients from the controller and re-check which are tracked in the IP database. Data is live.
 
 ---
 
@@ -77,14 +90,15 @@ Click **Refresh** to re-fetch clients from the controller. Data is live — no d
 
 - UniFi Integration configured (`UNIFI_API_KEY`, `UNIFI_BASE_URL`, `UNIFI_SITE_ID` in `.env`)
 - Controller must allow the legacy `/stat/sta` endpoint (default on UDM SE)
-- Read-only — no lease changes are made
+- Read-only against UniFi — the controller is never modified; adopting only writes to the local database
 
 ---
 
 ## Related
 
 - [Firewall Rule Viewer](firewall-viewer) — security rules on the same controller
-- [UniFi Sync (Local)](discovery-features) — import clients into the database for long-term tracking
+- [UniFi Sync (Local)](discovery-features) — bulk-import clients into the database
+- [IP addresses tab](ips-tab) — live/stale status for tracked IPs
 - [Monitoring](monitoring) — uptime/port monitoring of discovered hosts
 
 ---

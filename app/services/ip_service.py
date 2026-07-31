@@ -19,6 +19,7 @@ def create_ip(
     status: IPStatus = IPStatus.ACTIVE,
     device_id: int | None = None,
     notes: str | None = None,
+    source: str | None = None,
 ) -> IPAddress:
     """Create a new IP address entry."""
     ip = IPAddress(
@@ -30,6 +31,7 @@ def create_ip(
         status=status,
         device_id=device_id,
         notes=notes,
+        source=source,
         last_seen=datetime.now(timezone.utc),
     )
     session.add(ip)
@@ -198,3 +200,92 @@ def search_ips(session: Session, query: str) -> list[IPAddress]:
         )
         .all()
     )
+
+
+def adopt_lease(session: Session, lease: dict) -> tuple[bool, str]:
+    """Import a live DHCP lease into the local IP inventory.
+
+    Matches the lease's IP against the local network CIDRs. If an IP record
+    already exists it is refreshed (hostname, MAC, network, status, source);
+    otherwise a new record with source="unifi_client" is created.
+
+    Returns:
+        (created, message) where created is True when a new record was added,
+        False when an existing record was updated or the import failed.
+    """
+    address = lease.get("ip")
+    if not address:
+        return False, "Lease has no IP address"
+
+    from app.models.network import Network
+
+    target_net = None
+    try:
+        ip_obj = ipaddress_mod.ip_address(address)
+        for net in session.query(Network).all():
+            try:
+                if ip_obj in ipaddress_mod.ip_network(net.cidr, strict=False):
+                    target_net = net
+                    break
+            except ValueError:
+                continue
+    except ValueError:
+        return False, f"Invalid IP address: {address}"
+
+    if not target_net:
+        return (
+            False,
+            f"No matching network for {address} — run UniFi Sync → Networks first",
+        )
+
+    hostname = lease.get("hostname")
+    if hostname in (None, "", "—"):
+        hostname = None
+    mac = lease.get("mac")
+    if mac in (None, "", "—"):
+        mac = None
+
+    existing = get_ip_by_address(session, address)
+    if existing:
+        changed = False
+        if hostname and existing.hostname != hostname:
+            existing.hostname = hostname
+            changed = True
+        if mac and existing.mac_address != mac:
+            existing.mac_address = mac
+            changed = True
+        if existing.network_id != target_net.id:
+            existing.network_id = target_net.id
+            changed = True
+        if existing.source != "unifi_client":
+            existing.source = "unifi_client"
+            changed = True
+        existing.status = IPStatus.ACTIVE
+        existing.last_seen = datetime.now(timezone.utc)
+        if changed:
+            log_change(
+                session,
+                entity_type=EntityType.IP_ADDRESS,
+                entity_id=existing.id,
+                action=ActionType.UPDATED,
+                entity_name=address,
+                new_values={"source": "unifi_client", "status": "active"},
+                comment="Adopted from live DHCP lease",
+            )
+        session.commit()
+        return False, f"Updated existing record for {address}"
+
+    assignment = (
+        AssignmentType.STATIC if lease.get("is_static") else AssignmentType.DHCP
+    )
+    create_ip(
+        session,
+        address=address,
+        network_id=target_net.id,
+        hostname=hostname,
+        mac_address=mac,
+        assignment_type=assignment,
+        status=IPStatus.ACTIVE,
+        source="unifi_client",
+    )
+    return True, f"Added {address} ({hostname or 'no hostname'})"

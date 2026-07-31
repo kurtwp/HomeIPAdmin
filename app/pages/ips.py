@@ -18,6 +18,11 @@ def render_ips():
 
     session = get_session()
 
+    from app.services.unifi_service import fetch_dhcp_leases_or_none
+    live_leases = fetch_dhcp_leases_or_none()
+    live_available = live_leases is not None
+    live_ips = {l["ip"] for l in live_leases} if live_leases else set()
+
     with ui.column().classes("page-container w-full"):
         with ui.row().classes("w-full items-center justify-between"):
             ui.label("IP Addresses").classes("text-3xl font-bold")
@@ -30,6 +35,15 @@ def render_ips():
                 )
 
         ui.separator().classes("my-4")
+
+        if live_available:
+            ui.label(
+                f"Live status from UniFi: {len(live_ips)} client(s) currently on the network."
+            ).classes("text-xs text-gray-500 mb-2")
+        else:
+            ui.label(
+                "UniFi controller unavailable — live/stale status hidden."
+            ).classes("text-xs text-orange mb-2")
 
         # Filter controls
         networks = get_all_networks(session)
@@ -107,6 +121,12 @@ def render_ips():
                                     ui.badge(source_labels.get(ip.source, ip.source)).props(
                                         f'color={source_colors.get(ip.source, "gray")} outline'
                                     ).classes("text-xs")
+                                # Live/stale indicator for active IPs
+                                if live_available and ip.status == IPStatus.ACTIVE:
+                                    if ip.address in live_ips:
+                                        ui.badge("LIVE").props("color=green outline").classes("text-xs")
+                                    else:
+                                        ui.badge("STALE").props("color=orange outline").classes("text-xs")
                                 for tag in ip.tags:
                                     ui.html(
                                         f'<span style="font-size:0.65rem; padding:1px 8px; '

@@ -34,6 +34,29 @@ TEST_API_KEY = "test-api-key"
 
 
 @pytest.fixture
+def db_session():
+    """A fresh in-memory SQLAlchemy session for direct service tests."""
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    Base.metadata.create_all(bind=engine)
+    TestSession = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    session = TestSession()
+    yield session
+    session.close()
+    engine.dispose()
+
+
+@pytest.fixture
 def client():
     """FastAPI TestClient with a fresh in-memory DB per test."""
     engine = create_engine(

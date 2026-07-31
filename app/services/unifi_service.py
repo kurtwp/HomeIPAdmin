@@ -762,29 +762,27 @@ def _get_legacy_client() -> httpx.Client:
     )
 
 
-def fetch_dhcp_leases() -> list[dict]:
-    """Fetch active DHCP leases from the UniFi controller.
+def _fetch_raw_leases() -> list[dict] | None:
+    """Fetch raw client records from the legacy /stat/sta endpoint.
 
-    Uses the legacy /stat/sta endpoint — the integration API exposes client
-    list but the legacy endpoint includes lease expiry info (dhcpend_time).
-
-    Returns:
-        list of lease dicts with: ip, mac, hostname, vendor, network,
-        vlan, lease_expires (ISO timestamp or None), lease_seconds_left,
-        is_static, connected_at, uptime_sec, is_guest
+    Returns None when the controller is unconfigured, unreachable, or returns
+    an error, so callers can distinguish "no leases" from "unavailable".
     """
     if not is_configured():
-        return []
+        return None
 
     try:
         with _get_legacy_client() as client:
             r = client.get("/stat/sta")
             if r.status_code != 200:
-                return []
-            clients = r.json().get("data", [])
+                return None
+            return r.json().get("data", [])
     except Exception:
-        return []
+        return None
 
+
+def _build_leases(clients: list[dict]) -> list[dict]:
+    """Normalize raw client records into lease dicts."""
     leases = []
     now = datetime.now(timezone.utc)
 
@@ -823,3 +821,33 @@ def fetch_dhcp_leases() -> list[dict]:
 
     leases.sort(key=lambda l: (l["is_static"], l["ip"]))
     return leases
+
+
+def fetch_dhcp_leases() -> list[dict]:
+    """Fetch active DHCP leases from the UniFi controller.
+
+    Uses the legacy /stat/sta endpoint — the integration API exposes client
+    list but the legacy endpoint includes lease expiry info (dhcpend_time).
+
+    Returns:
+        list of lease dicts with: ip, mac, hostname, vendor, network,
+        vlan, lease_expires (ISO timestamp or None), lease_seconds_left,
+        is_static, connected_at, uptime_sec, is_guest
+
+        An empty list is returned when the controller is unavailable.
+    """
+    raw = _fetch_raw_leases()
+    if raw is None:
+        return []
+    return _build_leases(raw)
+
+
+def fetch_dhcp_leases_or_none() -> list[dict] | None:
+    """Like fetch_dhcp_leases but returns None when the controller is
+    unavailable or unconfigured, letting callers distinguish "no leases" ([])
+    from "unreachable" (None).
+    """
+    raw = _fetch_raw_leases()
+    if raw is None:
+        return None
+    return _build_leases(raw)

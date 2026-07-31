@@ -19,6 +19,10 @@ The main view displays all tracked IP addresses as cards, sorted numerically. Ea
   - `Infra` — UniFi infrastructure device
   - `Nmap` — found via network scan
   - `Manual` — added by hand
+- **Live/Stale status** — for Active IPs, a badge shows whether the address is currently connected to the UniFi network:
+  - `LIVE` (green) — the IP is in the controller's current client/lease list
+  - `STALE` (orange) — the IP is marked Active but no longer appears in live leases
+  - Hidden entirely when the UniFi controller is unreachable (a note is shown above the list)
 - **Tags** — color-coded chips
 - **Network name** — which subnet the IP belongs to
 - **Last seen** — timestamp of last activity
@@ -117,6 +121,7 @@ IPs can enter the system through several paths:
 3. **Ping Scan** — quick ICMP sweep results
 4. **Manual Entry** — added via the Add IP dialog or the Dashboard quick-add form
 5. **Import** — bulk imported via CSV on the Import/Export page
+6. **Adopt from DHCP Leases** — one click per lease on the [DHCP lease viewer](dhcp-leases)
 
 ## Relationship to Other Features
 
