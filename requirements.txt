@@ -15,4 +15,5 @@ bcrypt==4.2.1
 alembic==1.18.5
 fastapi==0.115.12
 uvicorn[standard]==0.34.2
+pytest==8.3.4
 # SNMP uses system snmpget/snmpwalk commands (net-snmp-utils package)

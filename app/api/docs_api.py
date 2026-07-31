@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, verify_api_key
 from app.api.schemas import DocCreate, DocResponse, DocUpdate
-from app.models.documentation import Documentation
+from app.models.documentation import Documentation, DocCategory
 
-router = APIRouter(prefix="/docs", tags=["Documentation"])
+router = APIRouter(prefix="/articles", tags=["Documentation"])
 
 
 @router.get("", response_model=list[DocResponse])
@@ -40,7 +40,10 @@ def create_doc(
     _key: str = Depends(verify_api_key),
 ):
     """Create a new documentation article."""
-    doc = Documentation(**body.model_dump())
+    data = body.model_dump()
+    if data.get("category") is not None:
+        data["category"] = DocCategory(data["category"])
+    doc = Documentation(**data)
     db.add(doc)
     db.flush()
     db.refresh(doc)
@@ -59,6 +62,8 @@ def update_doc(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     for field, value in body.model_dump(exclude_unset=True).items():
+        if field == "category" and value is not None:
+            value = DocCategory(value)
         setattr(doc, field, value)
     db.flush()
     db.refresh(doc)

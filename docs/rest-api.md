@@ -318,13 +318,15 @@ Returns aggregate statistics for the entire system.
 
 ### Documentation
 
+> **Note:** The documentation resource lives at `/articles`. The `/docs` path is reserved for the Swagger UI docs page.
+
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/docs` | List all articles |
-| GET | `/api/docs/{id}` | Get single article |
-| POST | `/api/docs` | Create article |
-| PUT | `/api/docs/{id}` | Update article |
-| DELETE | `/api/docs/{id}` | Delete article |
+| GET | `/api/articles` | List all articles |
+| GET | `/api/articles/{id}` | Get single article |
+| POST | `/api/articles` | Create article |
+| PUT | `/api/articles/{id}` | Update article |
+| DELETE | `/api/articles/{id}` | Delete article |
 
 **Create / Update body:**
 

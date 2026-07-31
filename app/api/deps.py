@@ -21,7 +21,7 @@ def get_db() -> Generator[Session, None, None]:
         session.close()
 
 
-def verify_api_key(x_api_key: str = Header(alias="X-API-KEY")) -> str:
+def verify_api_key(x_api_key: str | None = Header(default=None, alias="X-API-KEY")) -> str:
     """Validate the API key from the request header."""
     from config import API_KEY
 
@@ -30,6 +30,6 @@ def verify_api_key(x_api_key: str = Header(alias="X-API-KEY")) -> str:
             status_code=503,
             detail="API key not configured. Set API_KEY in your .env file.",
         )
-    if x_api_key != API_KEY:
+    if not x_api_key or x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API key")
     return x_api_key
