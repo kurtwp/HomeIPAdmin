@@ -447,6 +447,26 @@ for d in devices:
 
 ---
 
+## Testing the API
+
+A curl-based test script is included at `test_api.sh` in the project root. It runs a full CRUD cycle (create → read → update → search → delete) against every resource and cleans up after itself.
+
+```bash
+export API_KEY="your_secret_key_here"
+bash test_api.sh
+```
+
+Requirements:
+- The app must be running (`python main.py`) on the configured port (default `8080`)
+- `API_KEY` exported in the shell — or set inline: `API_KEY=your_key bash test_api.sh`
+- Override the port with `APP_PORT` if not 8080: `APP_PORT=9000 bash test_api.sh`
+
+The script exits with a clear error if the server isn't reachable, and fails fast with the raw response body if any create operation returns an error status.
+
+Alternatively, the interactive **Swagger UI** at `/api/docs` lets you test every endpoint in the browser, including saving the `X-API-KEY` via the **Authorize** button.
+
+---
+
 ## Troubleshooting
 
 | Problem | Solution |

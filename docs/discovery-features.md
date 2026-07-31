@@ -10,6 +10,8 @@ The Discovery dropdown menu provides all network scanning and device discovery t
 |------|-------|-------------|
 | UniFi Sync (Local) | `/unifi` | Pull data from your local UniFi controller |
 | Site Manager (Cloud) | `/site-manager` | Cloud API for cross-site UniFi overview |
+| Firewall Rules | `/firewall` | View firewall policies from the UDM SE |
+| DHCP Leases | `/dhcp-leases` | View active DHCP leases and static clients |
 | SNMP Discovery | `/snmp` | Query devices for system info via SNMP |
 | Nmap Scanner | `/nmap` | Run nmap commands with GUI interface |
 | Ping Scan | `/ping-scan` | Fast ICMP host discovery using fping/ping |
@@ -64,6 +66,46 @@ The Discovery dropdown menu provides all network scanning and device discovery t
 - Supports multiple WANs (wan, wan2) if configured
 - Expandable history table with all data points
 - Requires: UniFi OS 5.0.3+, Network App 8.3.32+
+
+---
+
+## Firewall Rules
+
+**Purpose:** View firewall policies from your UniFi Dream Machine without opening the UniFi console.
+
+**Access:** Discovery → Firewall Rules, or `/firewall`
+
+**Data source:** Integration API `GET /v1/sites/{siteId}/firewall/policies` + `/firewall/zones`
+
+**Features:**
+- **Summary cards** — total rules, enabled count, user-defined count
+- **Rules table** — sortable by order (precedence), name, action, and status
+- **Zone resolution** — zone IDs resolved to names, and network IDs inside each zone mapped to VLAN/network names
+- **Rule detail dialog** — click any row for full details: action, source/destination zones, IP version, connection state filters, logging, origin, traffic filter
+- **Refresh button** — re-fetch from the controller on demand
+
+**Read-only:** Rules are managed in the UniFi console; this page only displays them.
+
+See [Firewall Rule Viewer](firewall-viewer) for full documentation.
+
+---
+
+## DHCP Leases
+
+**Purpose:** See active DHCP leases and statically assigned clients on your UniFi network.
+
+**Access:** Discovery → DHCP Leases, or `/dhcp-leases`
+
+**Data source:** Legacy controller API `GET /proxy/network/api/s/default/stat/sta` — the Integration API has no lease endpoint, and `stat/dhcpd` is not exposed on this firmware.
+
+**Features:**
+- **Summary cards** — total clients, DHCP leases, static, expiring/expired
+- **Clients table** — IP, hostname, MAC, vendor, network, VLAN, lease expiry, time left, connected uptime, and static/DHCP type
+- **Live search filter** — filter by IP, hostname, or MAC as you type
+- **Lease countdown** — "Time Left" shows remaining lease time; ⚠️ warning under 1 hour
+- **Read-only** — no lease changes are made
+
+See [DHCP Lease Viewer](dhcp-leases) for full documentation.
 
 ---
 

@@ -159,6 +159,18 @@ def unifi_page():
     render_unifi()
 
 
+@ui.page("/firewall")
+def firewall_page():
+    from app.pages.firewall import render_firewall
+    render_firewall()
+
+
+@ui.page("/dhcp-leases")
+def dhcp_leases_page():
+    from app.pages.dhcp_leases import render_dhcp_leases
+    render_dhcp_leases()
+
+
 @ui.page("/scheduler")
 def scheduler_page():
     render_scheduler()

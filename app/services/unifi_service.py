@@ -654,3 +654,172 @@ def fetch_raw_networks() -> list[dict]:
 def fetch_raw_clients() -> list[dict]:
     """Fetch raw client data from UniFi for debugging field names."""
     return fetch_clients_from_unifi()
+
+
+# --- Firewall Policies ---
+
+def fetch_firewall_policies() -> dict:
+    """Fetch firewall policies, zones, and networks from UniFi.
+
+    Resolves zone IDs to human-readable names and maps network IDs inside
+    each zone to network names.
+
+    Returns:
+        dict with keys:
+            - "policies": list of normalized policy dicts
+            - "zones": list of zone dicts (id, name, networks)
+    """
+    if not is_configured():
+        return {"policies": [], "zones": []}
+
+    with _get_client() as client:
+        # Policies
+        r = client.get(f"/sites/{UNIFI_SITE_ID}/firewall/policies")
+        r.raise_for_status()
+        raw_policies = r.json().get("data", [])
+
+        # Zones (best-effort — may fail on some firmware versions)
+        zones: list[dict] = []
+        try:
+            zr = client.get(f"/sites/{UNIFI_SITE_ID}/firewall/zones")
+            if zr.status_code == 200:
+                zones = zr.json().get("data", [])
+        except Exception:
+            pass
+
+        # Networks for mapping network IDs to names
+        networks: list[dict] = []
+        try:
+            nr = client.get(f"/sites/{UNIFI_SITE_ID}/networks", params={"limit": 100})
+            if nr.status_code == 200:
+                networks = nr.json().get("data", [])
+        except Exception:
+            pass
+
+    zone_map = {z.get("id"): z.get("name", "Unknown") for z in zones}
+    network_map = {n.get("id"): n.get("name", "?") for n in networks}
+
+    zone_details = []
+    for z in zones:
+        zone_details.append(
+            {
+                "id": z.get("id"),
+                "name": z.get("name", "Unknown"),
+                "networks": [
+                    network_map.get(nid, nid) for nid in z.get("networkIds", [])
+                ],
+                "origin": (z.get("metadata") or {}).get("origin", ""),
+            }
+        )
+
+    policies = []
+    for p in raw_policies:
+        action = (p.get("action") or {}).get("type", "?")
+        source = p.get("source") or {}
+        destination = p.get("destination") or {}
+        ip_scope = p.get("ipProtocolScope") or {}
+        metadata = p.get("metadata") or {}
+
+        policies.append(
+            {
+                "id": p.get("id"),
+                "name": p.get("name", "Unnamed Rule"),
+                "enabled": p.get("enabled", True),
+                "index": p.get("index"),
+                "action": action,
+                "source_zone": zone_map.get(source.get("zoneId"), source.get("zoneId") or "Any"),
+                "destination_zone": zone_map.get(
+                    destination.get("zoneId"), destination.get("zoneId") or "Any"
+                ),
+                "ip_version": ip_scope.get("ipVersion", "IPV4_AND_IPV6"),
+                "connection_state": p.get("connectionStateFilter", []),
+                "logging": p.get("loggingEnabled", False),
+                "origin": metadata.get("origin", ""),
+                "configurable": metadata.get("configurable", True),
+                "has_traffic_filter": bool(
+                    (source.get("trafficFilter") or destination.get("trafficFilter"))
+                ),
+            }
+        )
+
+    # Sort by index (rule order), unknown/large indices last
+    policies.sort(
+        key=lambda p: (p["index"] is None, p["index"] if p["index"] is not None else 0)
+    )
+
+    return {"policies": policies, "zones": zone_details}
+
+
+# --- DHCP Leases (legacy client endpoint) ---
+
+def _get_legacy_client() -> httpx.Client:
+    """Create an httpx client for the legacy UniFi controller API."""
+    return httpx.Client(
+        base_url=f"{UNIFI_BASE_URL}/proxy/network/api/s/default",
+        headers=UNIFI_HEADERS,
+        verify=False,
+        timeout=15.0,
+    )
+
+
+def fetch_dhcp_leases() -> list[dict]:
+    """Fetch active DHCP leases from the UniFi controller.
+
+    Uses the legacy /stat/sta endpoint — the integration API exposes client
+    list but the legacy endpoint includes lease expiry info (dhcpend_time).
+
+    Returns:
+        list of lease dicts with: ip, mac, hostname, vendor, network,
+        vlan, lease_expires (ISO timestamp or None), lease_seconds_left,
+        is_static, connected_at, uptime_sec, is_guest
+    """
+    if not is_configured():
+        return []
+
+    try:
+        with _get_legacy_client() as client:
+            r = client.get("/stat/sta")
+            if r.status_code != 200:
+                return []
+            clients = r.json().get("data", [])
+    except Exception:
+        return []
+
+    leases = []
+    now = datetime.now(timezone.utc)
+
+    for c in clients:
+        ip = c.get("ip") or c.get("last_ip")
+        if not ip:
+            continue
+
+        dhcpend = c.get("dhcpend_time")
+        seconds_left = int(dhcpend) if dhcpend and dhcpend > 0 else None
+        lease_expires = (
+            (now.timestamp() + seconds_left) if seconds_left is not None else None
+        )
+
+        leases.append(
+            {
+                "ip": ip,
+                "mac": c.get("mac", "—"),
+                "hostname": (
+                    c.get("name")
+                    or c.get("hostname")
+                    or c.get("hostname_source")
+                    or "—"
+                ),
+                "vendor": c.get("dev_vendor", ""),
+                "network": c.get("last_connection_network_name", ""),
+                "vlan": c.get("vlan") or c.get("gw_vlan") or None,
+                "lease_expires": lease_expires,
+                "lease_seconds_left": seconds_left,
+                "is_static": seconds_left is None or c.get("useFixedIp", False),
+                "connected_at": c.get("assoc_time") or c.get("latest_assoc_time"),
+                "uptime_sec": c.get("uptime", 0),
+                "is_guest": bool(c.get("is_guest", False)),
+            }
+        )
+
+    leases.sort(key=lambda l: (l["is_static"], l["ip"]))
+    return leases
